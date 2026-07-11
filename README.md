@@ -2,57 +2,82 @@
 
 Every repository becomes a galaxy. **Stars are commits. Planets are folders. Satellites are files.** Pure eye candy.
 
-Point it at any local git repo and it renders that repo as an animated 3D galaxy in your browser:
+Point it at any local git repo — or a whole directory of them — and explore your code's history as an animated 3D universe in the browser.
 
-- The **galactic disc is time** — the dense core is the project's earliest history, the rim is now.
-- The most prolific **authors each own a spiral arm**; everyone else scatters as field stars.
-- Star **color is a temperature ramp over age** (newest burn blue-white, oldest fade to deep red), and star **size follows churn** — big refactors blaze, typo fixes twinkle. Merges get a brightness bonus.
-- The file tree at HEAD is the **galactic nucleus**: a solar system at the center of its own history — the root folder is the sun, subfolders orbit as planets on tilted planes (Kepler's third law, so inner bodies visibly outrun outer ones), and files swarm as satellites colored by extension.
+![The express repo rendered as a spiral galaxy](docs/media/galaxy-express.png)
 
-## Usage
+## Quick start
 
 ```bash
 npm install
 npm run build
-node packages/server/dist/cli.js /path/to/any/repo --open
+node packages/server/dist/cli.js /path/to/any/repo --open   # one repo → a galaxy
+node packages/server/dist/cli.js ~/repos --open             # many repos → a universe
 ```
+
+## What you're looking at
+
+**The galactic disc is time.** The core is the project's earliest history; the rim is now.
+
+- The most prolific **authors each own a spiral arm**; everyone else scatters as field stars. Repos with fewer than three authors fall back to a golden-angle phyllotaxis spiral.
+- **Star color** is a temperature ramp over age — the newest commits burn blue-white, the oldest fade to deep red. You can see where a project is alive.
+- **Star size follows churn** (`log(insertions + deletions)`) — big refactors blaze, typo fixes twinkle. Merge commits get a brightness bonus.
+- **Dark dust lanes** thread the arms, and a faint unresolved-starlight band traces them, the way a long exposure renders stars a camera can't separate.
+
+**The living codebase is the galactic nucleus.** The file tree at HEAD sits at the center as a solar system: the root folder is the sun (and the scene's light source — planets have day and night sides), subfolders orbit as planets on individually tilted planes following Kepler's third law, and files swarm as satellites colored by extension. History spirals around the code that produced it.
+
+Small repos get a compact disc with fatter stars; a 20-commit project reads as a cozy young cluster, not a scatter of lonely dots.
+
+## Exploring
+
+| Input | What it does |
+|---|---|
+| drag / scroll | orbit and zoom (grabbing the camera pauses auto-rotation) |
+| hover | **tooltips**: stars show the commit (subject, author, date, churn), planets the folder, satellites the file, suns the repo |
+| `T` | **play the repo's history** — stars ignite in commit order with a scrubber and date readout |
+| `C` | **author colors** — crossfade the starfield from age ramp to one distinct hue per contributor |
+| `R` / `O` | pause/resume galaxy rotation and orbital motion, independently |
+| `F` | **board the spaceship** 🚀 |
+| `H` | reset to the first-open view, intro and all |
+
+![Author color mode: each contributor's arm gets its own hue](docs/media/author-colors.png)
+
+### The spaceship
+
+`F` spawns a low-poly Space Shuttle orbiter ahead of your view. Pointer-locked mouse steers, `W`/`S` throttle, `A`/`D` roll, `Shift` boosts. While flying, the shuttle **scans whatever it passes** — the nearest commit, folder, or file appears in a HUD readout with its distance. `Esc` or `F` hands you back to orbit controls, aimed wherever you were heading.
+
+![Flying the shuttle into a galactic core](docs/media/flight.png)
+
+### Universe mode
+
+Point the CLI at a directory of repositories (e.g. `~/repos`) and each becomes its own labeled galaxy, arranged on a great ring sized so galaxies never overlap (up to 24 repos). The history timeline is normalized across the whole universe, so galaxies ignite in the order your projects were actually started.
+
+![A universe of eight repositories](docs/media/universe.png)
+
+## CLI
 
 ```
 git-galaxy [path] [options]
 
-  path                  A git repository — or a directory of repositories
-                        (e.g. ~/repos), rendered as a universe of galaxies
+  path                  A git repository, or a directory of repositories
+                        (default: current directory)
   -p, --port <n>        Port to serve on (default: 4242)
       --max-commits <n> Cap on commits fetched per repo, newest first (default: 5000)
       --open            Open the browser once the galaxy is ready
 ```
 
-In the browser: drag to explore, scroll to zoom, **hover anything** for details
-(stars show the commit, planets the folder, satellites the file, suns the repo).
-`R` pauses/resumes galaxy rotation, `O` pauses/resumes orbital motion — or use
-the buttons in the corner.
-
-**`T` plays the repo's history** — stars ignite in commit order with a
-scrubber and date readout; watch the arms grow as contributors join.
-**`C` switches star colors** between age (temperature ramp) and author
-(each contributor a distinct hue — see who works where).
-
-**`F` boards the spaceship** 🚀 — mouse steers, `W`/`S` throttle, `A`/`D` roll,
-`Shift` boosts, `Esc` (or `F`) returns to orbit view aimed wherever you were
-heading. While flying, the shuttle **scans** whatever it passes close to —
-commits, folders, files — in a HUD readout. **`H` resets** everything to the
-first-open view, intro and all.
+Friendly failure modes: non-repo paths exit with a clear message, zero-commit repos render an empty galaxy instead of crashing, and if another instance already holds the port it tells you which repo it's serving.
 
 ## Development
 
 ```bash
 npm run dev        # tsx-watched server (this repo) + Vite dev server with /api proxy
-npm test           # Vitest across all packages
+npm test           # Vitest across all packages (parsers, layout math, integration)
 npm run typecheck  # tsc --noEmit per package
 npm run lint       # Biome
 ```
 
-Open the Vite URL it prints; `#system` in the URL deep-links the camera to the folder system.
+`#system` in the URL deep-links the camera to the folder system. `window.__gg` exposes the scene assemblies and camera so e2e scripts can project objects to screen coordinates.
 
 ## Architecture
 
@@ -60,8 +85,8 @@ npm workspaces, three packages:
 
 | Package | What it is |
 |---|---|
-| `@git-galaxy/shared` | The API contract (`GalaxySnapshot`) + pure layout math (spiral placement, orbital packing, color ramps). No Three.js, no Node APIs — fully unit-tested. |
-| `@git-galaxy/server` | CLI + Express server. Spawns git plumbing (`log --numstat`, `ls-tree -r -l -z`) behind a `RepoSource` interface, serves `GET /api/galaxy` and the built frontend. |
-| `@git-galaxy/web` | Vite + Three.js renderer: one `THREE.Points` draw call for the whole starfield (custom shader, additive glow, twinkle), nested pivot groups for the orbital system. |
+| `@git-galaxy/shared` | The API contract (`UniverseSnapshot`) + pure layout math (spiral placement, orbital ring-packing, color ramps). No Three.js, no Node APIs — fully unit-tested and deterministic (same repo, same galaxy). |
+| `@git-galaxy/server` | CLI + Express server. Spawns git plumbing (`log --numstat`, `ls-tree -r -l -z`) behind a `RepoSource` interface, discovers repos, serves `GET /api/universe` and the built frontend. |
+| `@git-galaxy/web` | Vite + Three.js renderer: the whole starfield is three draw calls (unresolved glow, dust lanes, crisp stars) over one geometry, with timeline and color mode as pure shader uniforms. ACES tone mapping + restrained bloom. |
 
-See [docs/architecture.md](docs/architecture.md) for the design decisions and their tradeoffs.
+See [docs/architecture.md](docs/architecture.md) for the design decisions, tradeoffs, and the orbit-packing lesson learned the hard way.
