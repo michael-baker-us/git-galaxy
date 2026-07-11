@@ -147,7 +147,7 @@ if (location.hash === "#system" && firstAssembly) {
 }
 
 // ── Playback ─────────────────────────────────────────────────────────────
-const playback = mountControls(controlsEl);
+const playback = mountControls(controlsEl, () => resetView());
 let userTookOver = false;
 controls.addEventListener("start", () => {
   userTookOver = true;
@@ -269,12 +269,30 @@ camera.position.copy(introStart);
 for (const a of assemblies) a.starfield.setOpacity(0);
 controls.enabled = false;
 let introDone = false;
+let introT0 = 0;
 const easeOutCubic = (x: number): number => 1 - (1 - x) ** 3;
 
 const clock = new THREE.Clock();
 let twinkleTime = 0;
 let rotationTime = 0;
 let orbitTime = 0;
+
+/** Back to the first-open experience: intro replays, everything unpaused. */
+function resetView(): void {
+  flight.exit();
+  playback.resetPlayback();
+  userTookOver = false;
+  rotationTime = 0;
+  orbitTime = 0;
+  tooltip.hide();
+  camera.up.set(0, 1, 0);
+  camera.position.copy(introStart);
+  controls.target.set(0, 0, 0);
+  controls.enabled = false;
+  for (const a of assemblies) a.starfield.setOpacity(0);
+  introDone = false;
+  introT0 = twinkleTime;
+}
 
 onResize(() => {
   const heightPx = window.innerHeight * renderer.getPixelRatio();
@@ -288,10 +306,10 @@ renderer.setAnimationLoop(() => {
   if (!playback.orbitsPaused) orbitTime += dt;
 
   if (!introDone) {
-    const k = easeOutCubic(Math.min(1, twinkleTime / INTRO_SECONDS));
+    const k = easeOutCubic(Math.min(1, (twinkleTime - introT0) / INTRO_SECONDS));
     if (!flight.active) camera.position.lerpVectors(introStart, introTarget, k);
     for (const a of assemblies) a.starfield.setOpacity(k);
-    if (twinkleTime >= INTRO_SECONDS) {
+    if (twinkleTime - introT0 >= INTRO_SECONDS) {
       introDone = true;
       controls.enabled = !flight.active;
     }

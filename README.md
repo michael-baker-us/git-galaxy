@@ -34,7 +34,7 @@ the buttons in the corner.
 
 **`F` boards the spaceship** 🚀 — mouse steers, `W`/`S` throttle, `A`/`D` roll,
 `Shift` boosts, `Esc` (or `F`) returns to orbit view aimed wherever you were
-heading.
+heading. **`H` resets** everything to the first-open view, intro and all.
 
 ## Development
 
