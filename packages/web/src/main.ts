@@ -32,7 +32,8 @@ scene.add(createBackdrop());
 const orbits = new OrbitSystem(layoutTree(snapshot.tree));
 orbits.group.rotation.set(0.16, 0, 0.1);
 scene.add(orbits.group);
-scene.add(new THREE.AmbientLight(0x8899bb, 0.4));
+// The sun does the lighting; ambient is just a whisper of galactic skylight.
+scene.add(new THREE.AmbientLight(0x8899bb, 0.12));
 
 // The commit disc starts just outside the system and spirals outward in time.
 const innerHole = orbits.reach + 8;
@@ -42,7 +43,7 @@ const stars = layoutCommits(snapshot.commits, snapshot.authors, {
   minRadius: innerHole,
 });
 const starfield = new Starfield(stars);
-scene.add(starfield.points);
+scene.add(starfield.group);
 onResize((heightPx) => starfield.setViewportHeight(heightPx, camera.fov));
 
 // A lowish camera angle keeps the disc's depth visible instead of flattening it.

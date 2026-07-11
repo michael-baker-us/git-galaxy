@@ -5,6 +5,7 @@ import { createStarTexture } from "./starTexture";
 const VERTEX_SHADER = /* glsl */ `
   uniform float uTime;
   uniform float uPixelScale;
+  uniform float uSizeScale;
   attribute float aSize;
   attribute float aSeed;
   attribute vec3 aColor;
@@ -15,7 +16,7 @@ const VERTEX_SHADER = /* glsl */ `
     vColor = aColor;
     vTwinkle = 0.82 + 0.22 * sin(uTime * (0.5 + aSeed * 1.8) + aSeed * 40.0);
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = aSize * uPixelScale / -mvPosition.z;
+    gl_PointSize = aSize * uSizeScale * uPixelScale / -mvPosition.z;
     gl_Position = projectionMatrix * mvPosition;
   }
 `;
@@ -43,17 +44,26 @@ function intensityFor(starCount: number): number {
   return Math.max(0.28, 0.9 - (starCount - 500) / 7000);
 }
 
-/** One draw call for the whole commit history: THREE.Points + additive glow. */
+interface StarUniforms extends Record<string, THREE.IUniform> {
+  uTexture: THREE.IUniform<THREE.Texture>;
+  uTime: THREE.IUniform<number>;
+  uOpacity: THREE.IUniform<number>;
+  uIntensity: THREE.IUniform<number>;
+  uPixelScale: THREE.IUniform<number>;
+  uSizeScale: THREE.IUniform<number>;
+}
+
+/**
+ * Two passes over one geometry, both single draw calls:
+ *  - crisp resolved stars
+ *  - a huge, faint duplicate ("unresolved starlight") that melts into the
+ *    milky band tracing the arms, the way long-exposure photos render the
+ *    stars a camera can't separate.
+ */
 export class Starfield {
-  readonly points: THREE.Points;
-  private readonly material: THREE.ShaderMaterial;
-  private readonly uniforms: {
-    uTexture: THREE.IUniform<THREE.Texture>;
-    uTime: THREE.IUniform<number>;
-    uOpacity: THREE.IUniform<number>;
-    uIntensity: THREE.IUniform<number>;
-    uPixelScale: THREE.IUniform<number>;
-  };
+  readonly group = new THREE.Group();
+  private readonly starUniforms: StarUniforms;
+  private readonly glowUniforms: StarUniforms;
 
   constructor(placements: StarPlacement[]) {
     const n = placements.length;
@@ -74,38 +84,48 @@ export class Starfield {
     geometry.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
     geometry.setAttribute("aSeed", new THREE.BufferAttribute(seeds, 1));
 
-    this.uniforms = {
-      uTexture: { value: createStarTexture() },
+    const texture = createStarTexture();
+    const makeUniforms = (intensity: number, sizeScale: number): StarUniforms => ({
+      uTexture: { value: texture },
       uTime: { value: 0 },
       uOpacity: { value: 1 },
-      uIntensity: { value: intensityFor(n) },
+      uIntensity: { value: intensity },
       uPixelScale: { value: 600 },
-    };
-    this.material = new THREE.ShaderMaterial({
-      uniforms: this.uniforms,
-      vertexShader: VERTEX_SHADER,
-      fragmentShader: FRAGMENT_SHADER,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      uSizeScale: { value: sizeScale },
     });
+    const makeMaterial = (uniforms: StarUniforms): THREE.ShaderMaterial =>
+      new THREE.ShaderMaterial({
+        uniforms,
+        vertexShader: VERTEX_SHADER,
+        fragmentShader: FRAGMENT_SHADER,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      });
 
-    this.points = new THREE.Points(geometry, this.material);
+    this.starUniforms = makeUniforms(intensityFor(n), 1);
+    this.glowUniforms = makeUniforms(0.02, 7);
+    this.group.add(new THREE.Points(geometry, makeMaterial(this.glowUniforms)));
+    this.group.add(new THREE.Points(geometry, makeMaterial(this.starUniforms)));
   }
 
   update(elapsedSeconds: number): void {
-    this.uniforms.uTime.value = elapsedSeconds;
+    this.starUniforms.uTime.value = elapsedSeconds;
+    this.glowUniforms.uTime.value = elapsedSeconds;
     // One majestic rotation every ~20 minutes; OrbitControls adds the rest.
-    this.points.rotation.y = elapsedSeconds * 0.005;
+    this.group.rotation.y = elapsedSeconds * 0.005;
   }
 
   setOpacity(opacity: number): void {
-    this.uniforms.uOpacity.value = opacity;
+    this.starUniforms.uOpacity.value = opacity;
+    this.glowUniforms.uOpacity.value = opacity;
   }
 
   /** Keep on-screen star size proportional to viewport height. */
   setViewportHeight(heightPx: number, fovDegrees: number): void {
     const fovRadians = (fovDegrees * Math.PI) / 180;
-    this.uniforms.uPixelScale.value = (heightPx / (2 * Math.tan(fovRadians / 2))) * 1.15;
+    const scale = (heightPx / (2 * Math.tan(fovRadians / 2))) * 1.15;
+    this.starUniforms.uPixelScale.value = scale;
+    this.glowUniforms.uPixelScale.value = scale;
   }
 }

@@ -19,6 +19,10 @@ export interface SceneContext {
 export function createScene(canvas: HTMLCanvasElement): SceneContext {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  // Filmic highlight rolloff — bright cores compress like photographs
+  // instead of clipping to flat white.
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x02020a);

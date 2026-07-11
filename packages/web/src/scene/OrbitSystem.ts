@@ -1,5 +1,6 @@
 import type { BodyPlacement } from "@git-galaxy/shared";
 import * as THREE from "three";
+import { createStarTexture } from "./starTexture";
 
 /**
  * Renders the folder tree as an animated orbital system.
@@ -9,6 +10,10 @@ import * as THREE from "three";
  * Children attach to their parent's anchor, so moons follow planets for free.
  * Per-frame work is one rotation write per body — cheap for hundreds of bodies,
  * and world positions stay readable for future raycast tooltips.
+ *
+ * Realism comes from the lighting model: the sun is the only real light
+ * source (plus a whisper of ambient), so planets show day/night sides, and
+ * a fresnel atmosphere shell gives them a lit rim.
  */
 
 interface OrbitingBody {
@@ -22,6 +27,27 @@ interface OrbitingBody {
 const TARGET_MAX_REACH = 42;
 
 const SPHERE = new THREE.SphereGeometry(1, 24, 16);
+
+const ATMOSPHERE_VERTEX = /* glsl */ `
+  varying vec3 vNormal;
+  varying vec3 vView;
+  void main() {
+    vNormal = normalize(normalMatrix * normal);
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    vView = normalize(-mvPosition.xyz);
+    gl_Position = projectionMatrix * mvPosition;
+  }
+`;
+
+const ATMOSPHERE_FRAGMENT = /* glsl */ `
+  uniform vec3 uColor;
+  varying vec3 vNormal;
+  varying vec3 vView;
+  void main() {
+    float rim = pow(1.0 - abs(dot(vView, normalize(vNormal))), 2.8);
+    gl_FragColor = vec4(uColor, rim * 0.55);
+  }
+`;
 
 export class OrbitSystem {
   readonly group = new THREE.Group();
@@ -42,10 +68,17 @@ export class OrbitSystem {
       mesh.scale.setScalar(p.bodyRadius);
       anchor.add(mesh);
 
+      if (p.kind === "folder") {
+        anchor.add(createAtmosphere(p));
+      }
+
       if (p.parentPath === null) {
-        // The root is the system's sun: it sits at the center and lights it.
-        const light = new THREE.PointLight(0xffe2b0, 2500, 0, 2);
+        // The root is the system's sun — the scene's real light source,
+        // dressed with additive corona sprites so it reads as a star.
+        const light = new THREE.PointLight(0xffe2b0, 6000, 0, 2);
         anchor.add(light);
+        anchor.add(createCorona(p.bodyRadius * 5, 0xffe6c0, 0.5));
+        anchor.add(createCorona(p.bodyRadius * 12, 0xffc890, 0.14));
         this.group.add(anchor);
         reach.set(p.path, 0);
         maxReach = Math.max(maxReach, p.bodyRadius);
@@ -101,27 +134,57 @@ function materialFor(p: BodyPlacement): THREE.MeshStandardMaterial {
   const color = new THREE.Color(...p.color);
   if (p.kind === "root") {
     return new THREE.MeshStandardMaterial({
-      color,
-      emissive: color,
-      emissiveIntensity: 0.65,
+      color: 0xfff3dd,
+      emissive: 0xffdca8,
+      emissiveIntensity: 2.2,
     });
   }
+  // Nearly all shading comes from the sun; the faint emissive floor just
+  // keeps night sides from vanishing entirely.
   return new THREE.MeshStandardMaterial({
     color,
-    roughness: 0.6,
-    metalness: 0.05,
+    roughness: 0.85,
+    metalness: 0,
     emissive: color,
-    emissiveIntensity: p.kind === "file" ? 0.45 : 0.25,
+    emissiveIntensity: p.kind === "file" ? 0.12 : 0.06,
   });
 }
 
+function createAtmosphere(p: BodyPlacement): THREE.Mesh {
+  const material = new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: new THREE.Color(...p.color).multiplyScalar(1.4) } },
+    vertexShader: ATMOSPHERE_VERTEX,
+    fragmentShader: ATMOSPHERE_FRAGMENT,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const shell = new THREE.Mesh(SPHERE, material);
+  shell.scale.setScalar(p.bodyRadius * 1.05);
+  return shell;
+}
+
+function createCorona(scale: number, color: number, opacity: number): THREE.Sprite {
+  const material = new THREE.SpriteMaterial({
+    map: createStarTexture(128),
+    color,
+    transparent: true,
+    opacity,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.setScalar(scale);
+  return sprite;
+}
+
 function createOrbitRing(radius: number): THREE.Mesh {
-  const geometry = new THREE.RingGeometry(radius - 0.04, radius + 0.04, 96);
+  const geometry = new THREE.RingGeometry(radius - 0.03, radius + 0.03, 96);
   geometry.rotateX(-Math.PI / 2);
   const material = new THREE.MeshBasicMaterial({
     color: 0x9fb2e8,
     transparent: true,
-    opacity: 0.14,
+    opacity: 0.06,
     side: THREE.DoubleSide,
     depthWrite: false,
   });

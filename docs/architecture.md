@@ -81,6 +81,12 @@ git binary ──execFile──> LocalGitRepoSource ──parsers──> GalaxyS
 - **Additive saturation control**: where many star sprites overlap they sum to pure white,
   so per-star intensity scales down with star count (`intensityFor` in Starfield) — total
   light stays roughly constant whether the field has 30 stars or 5,000.
+- **Realism stack**: ACES filmic tone mapping (photographic highlight rolloff); the sun is
+  the scene's only real light source (ambient ≈ 0.12) so planets show day/night sides;
+  fresnel atmosphere shells give planets lit rims; the sun wears additive corona sprites;
+  and a second faint large-sprite pass over the same star geometry renders "unresolved
+  starlight" — the milky band tracing the arms, like the stars a long exposure can't
+  separate.
 
 ## Workspace shape
 
