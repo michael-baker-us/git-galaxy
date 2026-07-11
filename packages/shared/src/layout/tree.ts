@@ -43,11 +43,16 @@ export interface TreeLayoutOptions {
 const ORBIT_GAP = 1.6;
 const PERIOD_SCALE = 14;
 const PERIOD_REF_RADIUS = 8;
+/** Files share rings ("necklaces") so busy folders stay compact. */
+const FILES_PER_RING = 12;
+const RING_SPACING = 1.3;
+/** Spacing cap: a huge subtree may overlap a little instead of pushing every sibling out. */
+const SPACING_CAP = 18;
 
-const folderBodyRadius = (totalFiles: number): number => 1.0 + 0.6 * Math.log1p(totalFiles);
+const folderBodyRadius = (totalFiles: number): number => 1.6 + 0.85 * Math.log1p(totalFiles);
 
 const fileBodyRadius = (bytes: number): number =>
-  Math.min(0.8, Math.max(0.15, 0.12 + 0.045 * Math.log1p(bytes)));
+  Math.min(1.3, Math.max(0.3, 0.28 + 0.07 * Math.log1p(bytes)));
 
 const keplerPeriod = (orbitRadius: number): number =>
   PERIOD_SCALE * (orbitRadius / PERIOD_REF_RADIUS) ** 1.5;
@@ -86,8 +91,9 @@ export function layoutTree(root: FolderNode, options: TreeLayoutOptions = {}): B
       .slice(0, maxFilesPerFolder);
     let fileZone = bodyRadius;
     files.forEach((file, i) => {
-      const orbitRadius = bodyRadius * 1.5 + 0.35 * i;
-      fileZone = orbitRadius;
+      const ring = Math.floor(i / FILES_PER_RING);
+      const orbitRadius = bodyRadius * 1.45 + RING_SPACING * (ring + 1);
+      fileZone = Math.max(fileZone, orbitRadius);
       placements.push({
         path: file.path,
         name: file.name,
@@ -96,8 +102,10 @@ export function layoutTree(root: FolderNode, options: TreeLayoutOptions = {}): B
         depth: depth + 1,
         orbitRadius,
         orbitPeriod: keplerPeriod(orbitRadius),
-        phase: rng.range(0, 2 * Math.PI),
-        inclination: rng.gaussian() * 0.35,
+        // Even spacing around the ring keeps necklaces from clumping;
+        // same radius = same speed, so the spacing holds forever.
+        phase: ((i % FILES_PER_RING) / FILES_PER_RING) * 2 * Math.PI + rng.range(-0.15, 0.15),
+        inclination: rng.gaussian() * 0.25,
         bodyRadius: fileBodyRadius(file.bytes),
         color: extColor(file.ext),
       });
@@ -105,22 +113,38 @@ export function layoutTree(root: FolderNode, options: TreeLayoutOptions = {}): B
 
     let extent = Math.max(bodyRadius, fileZone);
 
-    // Subfolder planets orbit beyond the satellite swarm, spaced by their
-    // own subtree extents so systems never collide.
+    // Subfolder planets orbit beyond the satellite swarm. Siblings share
+    // rings (evenly phase-spaced; same radius = same speed, so spacing
+    // holds forever) instead of one concentric orbit each — concentric
+    // orbits explode combinatorially for folders with many children.
+    // Extents are capped for spacing: monster subtrees may overlap
+    // slightly rather than inflate the whole system.
     if (depth < maxDepth) {
-      const subfolders = folder.children
+      const children = folder.children
         .filter((c): c is FolderNode => c.type === "dir")
-        .sort((a, b) => b.totalFiles - a.totalFiles);
-      let cursor = extent + ORBIT_GAP;
-      for (const sub of subfolders) {
-        const child = layoutFolder(sub, depth + 1, folder.path);
-        const orbitRadius = cursor + child.extent;
-        child.placement.orbitRadius = orbitRadius;
-        child.placement.orbitPeriod = keplerPeriod(orbitRadius);
-        child.placement.phase = rng.range(0, 2 * Math.PI);
-        child.placement.inclination = rng.gaussian() * 0.1;
-        cursor = orbitRadius + child.extent + ORBIT_GAP;
-        extent = orbitRadius + child.extent;
+        .sort((a, b) => b.totalFiles - a.totalFiles)
+        .map((sub) => layoutFolder(sub, depth + 1, folder.path));
+
+      let ringInner = extent + ORBIT_GAP;
+      let i = 0;
+      while (i < children.length) {
+        const first = children[i];
+        if (first === undefined) break;
+        // Children are sorted biggest-first, so the first member bounds the ring.
+        const ringExtent = Math.min(first.extent, SPACING_CAP);
+        const radius = ringInner + ringExtent;
+        const footprint = 2 * Math.asin(Math.min(1, (ringExtent + ORBIT_GAP / 2) / radius));
+        const capacity = Math.max(1, Math.floor((2 * Math.PI) / footprint));
+        const members = children.slice(i, i + capacity);
+        members.forEach((child, j) => {
+          child.placement.orbitRadius = radius;
+          child.placement.orbitPeriod = keplerPeriod(radius);
+          child.placement.phase = (j / members.length) * 2 * Math.PI + rng.range(-0.1, 0.1);
+          child.placement.inclination = rng.gaussian() * 0.06;
+        });
+        i += members.length;
+        ringInner = radius + ringExtent + ORBIT_GAP;
+        extent = radius + Math.max(...members.map((m) => m.extent));
       }
     }
 

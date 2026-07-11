@@ -66,19 +66,41 @@ describe("layoutTree", () => {
     }
   });
 
-  it("spaces sibling folder orbits so subtrees cannot overlap", () => {
+  it("separates sibling folders: shared rings by phase, or distinct rings by radius", () => {
     const placements = layoutTree(sampleTree());
-    const siblings = placements
-      .filter((p) => p.kind === "folder" && p.parentPath === "")
-      .sort((a, b) => a.orbitRadius - b.orbitRadius);
-    for (let i = 1; i < siblings.length; i++) {
-      const inner = siblings[i - 1];
-      const outer = siblings[i];
-      if (!inner || !outer) continue;
-      expect(outer.orbitRadius - inner.orbitRadius).toBeGreaterThan(
-        inner.bodyRadius + outer.bodyRadius,
-      );
+    const siblings = placements.filter((p) => p.kind === "folder" && p.parentPath === "");
+    for (let i = 0; i < siblings.length; i++) {
+      for (let j = i + 1; j < siblings.length; j++) {
+        const a = siblings[i];
+        const b = siblings[j];
+        if (!a || !b) continue;
+        if (a.orbitRadius === b.orbitRadius) {
+          // Same ring: arc distance between them must clear both bodies.
+          let dPhase = Math.abs(a.phase - b.phase) % (2 * Math.PI);
+          dPhase = Math.min(dPhase, 2 * Math.PI - dPhase);
+          expect(dPhase * a.orbitRadius).toBeGreaterThan(a.bodyRadius + b.bodyRadius);
+        } else {
+          expect(Math.abs(a.orbitRadius - b.orbitRadius)).toBeGreaterThan(0.5);
+        }
+      }
     }
+  });
+
+  it("keeps deep wide trees compact (no combinatorial orbit blow-up)", () => {
+    // 20 sibling folders of 12 files each: concentric orbits would push the
+    // outermost sibling past 200 units; shared rings must stay well under that.
+    const wide = dir(
+      "",
+      Array.from({ length: 20 }, (_, i) =>
+        dir(
+          `pkg${i}`,
+          Array.from({ length: 12 }, (_, j) => file(`pkg${i}/f${j}.ts`, 1000)),
+        ),
+      ),
+    );
+    const placements = layoutTree(wide);
+    const maxOrbit = Math.max(...placements.map((p) => p.orbitRadius));
+    expect(maxOrbit).toBeLessThan(100);
   });
 
   it("gives bigger folders bigger bodies", () => {
