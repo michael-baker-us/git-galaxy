@@ -54,7 +54,9 @@ export class OrbitSystem {
       if (!parentAnchor) continue; // placements are parent-before-child by construction
 
       const tiltPivot = new THREE.Group();
-      tiltPivot.rotation.z = p.inclination;
+      // Orient the orbit plane: spin the node line first, then tilt around it.
+      tiltPivot.rotateY(p.node);
+      tiltPivot.rotateZ(p.inclination);
       parentAnchor.add(tiltPivot);
 
       const holder = new THREE.Group();

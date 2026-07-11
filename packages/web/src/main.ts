@@ -41,9 +41,10 @@ orbits.group.position.set(0, systemY, 0);
 scene.add(orbits.group);
 scene.add(new THREE.AmbientLight(0x8899bb, 0.4));
 
-// Frame the whole composition — disc below, folder system above.
+// Frame the whole composition — disc below, folder system above. A lowish
+// camera angle keeps the disc's depth visible instead of flattening it.
 const frame = Math.max(150, discRadius * 2.6);
-camera.position.set(0, frame * 0.46, frame);
+camera.position.set(0, frame * 0.28, frame);
 controls.target.set(0, systemY * 0.4, 0);
 
 // Deep-link straight to the folder system (handy while developing).

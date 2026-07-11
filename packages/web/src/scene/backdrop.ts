@@ -69,7 +69,7 @@ export function createCoreGlow(galaxyRadius: number): THREE.Sprite {
     map: createStarTexture(128),
     color: 0xffd9a0,
     transparent: true,
-    opacity: 0.1,
+    opacity: 0.06,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });

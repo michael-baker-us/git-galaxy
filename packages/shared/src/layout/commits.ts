@@ -54,7 +54,7 @@ export function layoutCommits(
   authors: Author[],
   options: CommitLayoutOptions = {},
 ): StarPlacement[] {
-  const { maxRadius = 100, armCount = 6, twist = 2.6, thickness = 3, seed = 1 } = options;
+  const { maxRadius = 100, armCount = 6, twist = 2.6, thickness = 5, seed = 1 } = options;
   const total = commits.length;
   if (total === 0) return [];
 
@@ -107,9 +107,12 @@ export function layoutCommits(
     }
     radius = Math.max(0.5, radius);
 
-    // Central bulge: the disc is thicker toward the core.
-    const bulge = 1.2 - 0.8 * (radius / maxRadius);
-    const y = rng.gaussian() * thickness * bulge;
+    // Central bulge: the disc swells into a spheroid toward the core.
+    const bulge = Math.max(0.35, 1.6 - 1.25 * (radius / maxRadius));
+    let y = rng.gaussian() * thickness * bulge;
+    // A sparse thick-disc/halo population lives well off the plane —
+    // this is what makes the galaxy read as a volume, not a sheet.
+    if (rng.next() < 0.1) y *= 2.8;
 
     const age = span > 0 ? 1 - (commit.timestamp - minTs) / span : 0.5;
     const churn = commit.stats.insertions + commit.stats.deletions;

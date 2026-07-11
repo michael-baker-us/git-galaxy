@@ -28,6 +28,8 @@ export interface BodyPlacement {
   phase: number;
   /** Orbit-plane tilt, radians. */
   inclination: number;
+  /** Longitude of the ascending node — where the tilted plane crosses flat, radians. */
+  node: number;
   bodyRadius: number;
   color: Rgb;
 }
@@ -79,6 +81,7 @@ export function layoutTree(root: FolderNode, options: TreeLayoutOptions = {}): B
       orbitPeriod: 0,
       phase: 0,
       inclination: 0,
+      node: 0,
       bodyRadius,
       color: depth === 0 ? [1.0, 0.85, 0.55] : folderColor(folder.name),
     };
@@ -90,8 +93,17 @@ export function layoutTree(root: FolderNode, options: TreeLayoutOptions = {}): B
       .sort((a, b) => b.bytes - a.bytes)
       .slice(0, maxFilesPerFolder);
     let fileZone = bodyRadius;
+    // Each ring is a coherent plane with its own 3D tilt — necklaces stay
+    // evenly spaced within their plane, but the planes interleave like a
+    // gyroscope instead of stacking flat.
+    const fileRingCount = Math.ceil(files.length / FILES_PER_RING);
+    const fileRings = Array.from({ length: fileRingCount }, () => ({
+      inclination: rng.gaussian() * 0.45,
+      node: rng.range(0, 2 * Math.PI),
+    }));
     files.forEach((file, i) => {
       const ring = Math.floor(i / FILES_PER_RING);
+      const plane = fileRings[ring] ?? { inclination: 0, node: 0 };
       const orbitRadius = bodyRadius * 1.45 + RING_SPACING * (ring + 1);
       fileZone = Math.max(fileZone, orbitRadius);
       placements.push({
@@ -105,7 +117,8 @@ export function layoutTree(root: FolderNode, options: TreeLayoutOptions = {}): B
         // Even spacing around the ring keeps necklaces from clumping;
         // same radius = same speed, so the spacing holds forever.
         phase: ((i % FILES_PER_RING) / FILES_PER_RING) * 2 * Math.PI + rng.range(-0.15, 0.15),
-        inclination: rng.gaussian() * 0.25,
+        inclination: plane.inclination,
+        node: plane.node,
         bodyRadius: fileBodyRadius(file.bytes),
         color: extColor(file.ext),
       });
@@ -136,11 +149,13 @@ export function layoutTree(root: FolderNode, options: TreeLayoutOptions = {}): B
         const footprint = 2 * Math.asin(Math.min(1, (ringExtent + ORBIT_GAP / 2) / radius));
         const capacity = Math.max(1, Math.floor((2 * Math.PI) / footprint));
         const members = children.slice(i, i + capacity);
+        const plane = { inclination: rng.gaussian() * 0.28, node: rng.range(0, 2 * Math.PI) };
         members.forEach((child, j) => {
           child.placement.orbitRadius = radius;
           child.placement.orbitPeriod = keplerPeriod(radius);
           child.placement.phase = (j / members.length) * 2 * Math.PI + rng.range(-0.1, 0.1);
-          child.placement.inclination = rng.gaussian() * 0.06;
+          child.placement.inclination = plane.inclination;
+          child.placement.node = plane.node;
         });
         i += members.length;
         ringInner = radius + ringExtent + ORBIT_GAP;
