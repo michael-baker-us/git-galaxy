@@ -45,7 +45,7 @@ const ATMOSPHERE_FRAGMENT = /* glsl */ `
   varying vec3 vView;
   void main() {
     float rim = pow(1.0 - abs(dot(vView, normalize(vNormal))), 2.8);
-    gl_FragColor = vec4(uColor, rim * 0.55);
+    gl_FragColor = vec4(uColor, rim * 0.35);
   }
 `;
 
@@ -77,8 +77,8 @@ export class OrbitSystem {
         // dressed with additive corona sprites so it reads as a star.
         const light = new THREE.PointLight(0xffe2b0, 6000, 0, 2);
         anchor.add(light);
-        anchor.add(createCorona(p.bodyRadius * 5, 0xffe6c0, 0.5));
-        anchor.add(createCorona(p.bodyRadius * 12, 0xffc890, 0.14));
+        anchor.add(createCorona(p.bodyRadius * 3.2, 0xffe6c0, 0.35));
+        anchor.add(createCorona(p.bodyRadius * 5.5, 0xffc890, 0.05));
         this.group.add(anchor);
         reach.set(p.path, 0);
         maxReach = Math.max(maxReach, p.bodyRadius);

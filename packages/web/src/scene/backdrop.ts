@@ -45,7 +45,7 @@ export function createBackdrop(seed = 7): THREE.Group {
       map: texture,
       color,
       transparent: true,
-      opacity: 0.025,
+      opacity: 0.015,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });

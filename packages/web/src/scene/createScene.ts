@@ -22,7 +22,7 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
   // Filmic highlight rolloff — bright cores compress like photographs
   // instead of clipping to flat white.
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.1;
+  renderer.toneMappingExposure = 0.95;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x02020a);
@@ -53,9 +53,9 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
   composer.addPass(new RenderPass(scene, camera));
   const bloom = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
-    0.12,
-    0.4,
-    0.4,
+    0.07,
+    0.3,
+    0.45,
   );
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
