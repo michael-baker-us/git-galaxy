@@ -90,28 +90,33 @@ if (assemblies.length === 1 && firstAssembly) {
   scene.add(firstAssembly.group);
   boundRadius = firstAssembly.discRadius;
 } else {
-  const arcWidths = assemblies.map((a) => a.discRadius * 2 + 70);
-  const circumference = arcWidths.reduce((s, w) => s + w, 0);
-  const ringRadius = Math.max(
-    circumference / (2 * Math.PI),
-    Math.max(...assemblies.map((a) => a.discRadius)) * 1.6,
-  );
-  let theta = 0;
+  // Evenly spaced around a ring whose radius guarantees that every adjacent
+  // pair clears each other — galaxies must never overlap.
+  const GLOW_MARGIN = 25;
+  const GALAXY_GAP = 45;
+  const n = assemblies.length;
+  const extents = assemblies.map((a) => a.discRadius + GLOW_MARGIN);
+  const halfAngle = Math.PI / n;
+  let ringRadius = 0;
+  for (let i = 0; i < n; i++) {
+    const next = extents[(i + 1) % n] ?? 0;
+    const needed = ((extents[i] ?? 0) + next + GALAXY_GAP) / (2 * Math.sin(halfAngle));
+    ringRadius = Math.max(ringRadius, needed);
+  }
+
   assemblies.forEach((assembly, i) => {
-    const arc = (arcWidths[i] ?? 0) / circumference;
-    theta += arc * Math.PI; // half the arc in
+    const angle = (i / n) * 2 * Math.PI;
     const h = hashString(assembly.snapshot.meta.repoName);
     assembly.group.position.set(
-      Math.cos(theta * 2) * ringRadius,
-      ((h % 100) / 100 - 0.5) * 60,
-      Math.sin(theta * 2) * ringRadius,
+      Math.cos(angle) * ringRadius,
+      ((h % 100) / 100 - 0.5) * 30,
+      Math.sin(angle) * ringRadius,
     );
     assembly.group.rotation.set(
-      (((h >> 8) % 100) / 100 - 0.5) * 0.5,
+      (((h >> 8) % 100) / 100 - 0.5) * 0.3,
       0,
-      (((h >> 16) % 100) / 100 - 0.5) * 0.5,
+      (((h >> 16) % 100) / 100 - 0.5) * 0.3,
     );
-    theta += arc * Math.PI; // the other half out
 
     const label = createLabel(assembly.snapshot.meta.repoName);
     label.position.set(0, assembly.discRadius * 0.35 + 16, 0);
@@ -120,7 +125,7 @@ if (assemblies.length === 1 && firstAssembly) {
     assembly.group.add(label);
     scene.add(assembly.group);
   });
-  boundRadius = ringRadius + Math.max(...assemblies.map((a) => a.discRadius));
+  boundRadius = ringRadius + Math.max(...extents);
 }
 
 // Single galaxy: a lowish angle keeps the disc's depth visible. A universe
