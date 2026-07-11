@@ -39,8 +39,8 @@ const FRAGMENT_SHADER = /* glsl */ `
  * fields get dimmer individual stars — total light stays roughly constant.
  */
 function intensityFor(starCount: number): number {
-  if (starCount <= 800) return 1;
-  return Math.max(0.4, 1 - (starCount - 800) / 8000);
+  if (starCount <= 500) return 0.9;
+  return Math.max(0.28, 0.9 - (starCount - 500) / 7000);
 }
 
 /** One draw call for the whole commit history: THREE.Points + additive glow. */
