@@ -40,13 +40,21 @@ Small repos get a compact disc with fatter stars; a 20-commit project reads as a
 | `F` | **board the spaceship** 🚀 |
 | `H` | reset to the first-open view, intro and all |
 
+Every object in the scene explains itself on hover — this star is a real commit:
+
+![Hovering a star shows the commit: subject, author, date, churn, hash](docs/media/tooltip.png)
+
 ![Author color mode: each contributor's arm gets its own hue](docs/media/author-colors.png)
 
 ### The spaceship
 
-`F` spawns a low-poly Space Shuttle orbiter ahead of your view. Pointer-locked mouse steers, `W`/`S` throttle, `A`/`D` roll, `Shift` boosts. While flying, the shuttle **scans whatever it passes** — the nearest commit, folder, or file appears in a HUD readout with its distance. `Esc` or `F` hands you back to orbit controls, aimed wherever you were heading.
+`F` spawns a low-poly Space Shuttle orbiter ahead of your view. Pointer-locked mouse steers, `W`/`S` throttle, `A`/`D` roll, `Shift` boosts. `Esc` or `F` hands you back to orbit controls, aimed wherever you were heading.
 
 ![Flying the shuttle into a galactic core](docs/media/flight.png)
+
+While flying, the shuttle **scans whatever it passes** — the nearest commit, folder, or file appears in a HUD readout with its distance. Here, threading through express's nucleus, it's picked up a file 6.6 units away:
+
+![The proximity scanner reading out a file while flying through the nucleus](docs/media/flight-scan.png)
 
 ### Universe mode
 
