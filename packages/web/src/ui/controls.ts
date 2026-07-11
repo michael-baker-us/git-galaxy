@@ -3,6 +3,8 @@ export interface PlaybackState {
   orbitsPaused: boolean;
   /** Color stars by author instead of age. */
   authorColors: boolean;
+  /** Programmatic pause (e.g. when the user grabs the camera) — keeps the button honest. */
+  setRotationPaused(paused: boolean): void;
   /** Clears pauses and color mode, re-syncs button labels. */
   resetPlayback(): void;
 }
@@ -17,6 +19,10 @@ export function mountControls(el: HTMLElement, onReset: () => void): PlaybackSta
     rotationPaused: false,
     orbitsPaused: false,
     authorColors: false,
+    setRotationPaused(paused: boolean) {
+      state.rotationPaused = paused;
+      sync();
+    },
     resetPlayback() {
       state.rotationPaused = false;
       state.orbitsPaused = false;

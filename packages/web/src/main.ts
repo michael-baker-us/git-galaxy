@@ -176,9 +176,10 @@ if (location.hash === "#system" && firstAssembly) {
 
 // ── Playback ─────────────────────────────────────────────────────────────
 const playback = mountControls(controlsEl, () => resetView());
-let userTookOver = false;
+// Grabbing the camera (drag or zoom) pauses rotation through the same state
+// the button shows, so the label stays honest and R resumes the drift.
 controls.addEventListener("start", () => {
-  userTookOver = true;
+  if (!playback.rotationPaused) playback.setRotationPaused(true);
 });
 
 // ── Hover tooltips ───────────────────────────────────────────────────────
@@ -392,7 +393,6 @@ let colorMix = 0;
 function resetView(): void {
   flight.exit();
   playback.resetPlayback();
-  userTookOver = false;
   rotationTime = 0;
   orbitTime = 0;
   timeline.t = 1;
@@ -458,7 +458,7 @@ renderer.setAnimationLoop(() => {
       scan();
     }
   } else {
-    controls.autoRotate = !userTookOver && !playback.rotationPaused;
+    controls.autoRotate = !playback.rotationPaused;
     controls.update();
 
     // Throttled hover pick: cheap enough to feel live, never a frame hog.
