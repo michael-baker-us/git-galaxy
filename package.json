@@ -1,0 +1,25 @@
+{
+  "name": "git-galaxy",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Every repository becomes a galaxy. Stars are commits. Planets are folders. Satellites are files.",
+  "workspaces": ["packages/*"],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,magenta \"npm run dev -w @git-galaxy/server\" \"npm run dev -w @git-galaxy/web\"",
+    "build": "npm run build -w @git-galaxy/web && npm run build -w @git-galaxy/server",
+    "test": "vitest run",
+    "typecheck": "npm run typecheck --workspaces",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.1"
+  }
+}
