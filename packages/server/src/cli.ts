@@ -5,14 +5,14 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { GitError } from "./git";
 import { createApp } from "./server";
-import { LocalGitRepoSource } from "./sources/local-git";
-import { buildSnapshot } from "./sources/types";
+import { buildUniverse, discoverRepos } from "./sources/universe";
 
 const HELP = `git-galaxy — render a git repository as a 3D galaxy
 
-Usage: git-galaxy [repo-path] [options]
+Usage: git-galaxy [path] [options]
 
-  repo-path            Path to a git repository (default: current directory)
+  path                 A git repository, or a directory of git repositories —
+                       each repo becomes its own galaxy (default: current directory)
 
 Options:
   -p, --port <n>       Port to serve on (default: 4242)
@@ -46,24 +46,24 @@ async function main(): Promise<void> {
     throw new GitError(`invalid --max-commits: ${values["max-commits"]}`);
   }
 
-  const repoPath = resolve(positionals[0] ?? process.cwd());
+  const rootPath = resolve(positionals[0] ?? process.cwd());
   await assertPortFree(port);
-  const source = new LocalGitRepoSource(repoPath);
-  await source.validate();
 
-  console.log(`✦ scanning ${repoPath} …`);
-  const snapshot = await buildSnapshot(source, { maxCommits });
-  const { meta, tree } = snapshot;
-  const shown = meta.truncated
-    ? `${snapshot.commits.length.toLocaleString()} of ${meta.totalCommits.toLocaleString()}`
-    : meta.totalCommits.toLocaleString();
-  console.log(
-    `✦ ${meta.repoName} · ${meta.headRef} · ${shown} commits · ${tree.totalFiles.toLocaleString()} files`,
-  );
+  console.log(`✦ scanning ${rootPath} …`);
+  const repoPaths = await discoverRepos(rootPath);
+  const universe = await buildUniverse(repoPaths, { maxCommits });
+  for (const { meta, commits, tree } of universe.galaxies) {
+    const shown = meta.truncated
+      ? `${commits.length.toLocaleString()} of ${meta.totalCommits.toLocaleString()}`
+      : meta.totalCommits.toLocaleString();
+    console.log(
+      `✦ ${meta.repoName} · ${meta.headRef} · ${shown} commits · ${tree.totalFiles.toLocaleString()} files`,
+    );
+  }
 
   // Built frontend lives at packages/web/dist relative to both src/ (tsx) and dist/ (built).
   const staticDir = resolve(fileURLToPath(import.meta.url), "../../../web/dist");
-  const app = createApp(snapshot, staticDir);
+  const app = createApp(universe, staticDir);
 
   await new Promise<void>((resolvePromise, reject) => {
     const server = app.listen(port, () => resolvePromise());
@@ -71,7 +71,9 @@ async function main(): Promise<void> {
   });
 
   const url = `http://localhost:${port}`;
-  console.log(`✦ galaxy ready → ${url}`);
+  const label =
+    universe.galaxies.length === 1 ? "galaxy" : `universe of ${universe.galaxies.length} galaxies`;
+  console.log(`✦ ${label} ready → ${url}`);
   if (values.open) openBrowser(url);
 }
 

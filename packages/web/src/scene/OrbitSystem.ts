@@ -53,6 +53,8 @@ export class OrbitSystem {
   readonly group = new THREE.Group();
   /** World-space radius of the whole system after fit-to-scale. */
   reach = 0;
+  /** Hover-raycast targets; each carries its BodyPlacement in userData.body. */
+  readonly pickables: THREE.Object3D[] = [];
   private readonly bodies: OrbitingBody[] = [];
 
   constructor(placements: BodyPlacement[]) {
@@ -66,7 +68,9 @@ export class OrbitSystem {
 
       const mesh = new THREE.Mesh(SPHERE, materialFor(p));
       mesh.scale.setScalar(p.bodyRadius);
+      mesh.userData.body = p;
       anchor.add(mesh);
+      this.pickables.push(mesh);
 
       if (p.kind === "folder") {
         anchor.add(createAtmosphere(p));
@@ -77,7 +81,12 @@ export class OrbitSystem {
         // dressed with additive corona sprites so it reads as a star.
         const light = new THREE.PointLight(0xffe2b0, 6000, 0, 2);
         anchor.add(light);
-        anchor.add(createCorona(p.bodyRadius * 3.2, 0xffe6c0, 0.35));
+        // The corona is the nucleus you actually see from a distance, so it
+        // doubles as a big hover target for the repo itself.
+        const corona = createCorona(p.bodyRadius * 3.2, 0xffe6c0, 0.35);
+        corona.userData.body = p;
+        this.pickables.push(corona);
+        anchor.add(corona);
         anchor.add(createCorona(p.bodyRadius * 5.5, 0xffc890, 0.05));
         this.group.add(anchor);
         reach.set(p.path, 0);

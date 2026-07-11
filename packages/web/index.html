@@ -40,11 +40,51 @@
       #hud .dim {
         color: rgba(160, 170, 210, 0.6);
       }
+      #controls {
+        position: fixed;
+        bottom: 16px;
+        left: 20px;
+        display: flex;
+        gap: 8px;
+      }
+      #controls button {
+        background: rgba(18, 24, 46, 0.72);
+        color: rgba(210, 220, 250, 0.9);
+        border: 1px solid rgba(150, 165, 220, 0.25);
+        border-radius: 6px;
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        font-size: 12px;
+        padding: 6px 12px;
+        cursor: pointer;
+      }
+      #controls button:hover {
+        background: rgba(35, 45, 80, 0.85);
+      }
+      #tooltip {
+        position: fixed;
+        display: none;
+        pointer-events: none;
+        z-index: 10;
+        max-width: 360px;
+        background: rgba(8, 10, 22, 0.92);
+        border: 1px solid rgba(150, 165, 220, 0.3);
+        border-radius: 6px;
+        padding: 8px 11px;
+        color: #dce4ff;
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        font-size: 12px;
+        line-height: 1.55;
+      }
+      #tooltip .dim {
+        color: rgba(160, 170, 210, 0.7);
+      }
     </style>
   </head>
   <body>
     <canvas id="scene"></canvas>
     <div id="hud"></div>
+    <div id="controls"></div>
+    <div id="tooltip"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -72,9 +72,13 @@ const DUST_MAX = 0.3;
  */
 export class Starfield {
   readonly group = new THREE.Group();
+  /** The crisp star pass, exposed for hover raycasting. */
+  readonly starPoints: THREE.Points;
+  readonly placements: StarPlacement[];
   private readonly allUniforms: StarUniforms[] = [];
 
   constructor(placements: StarPlacement[]) {
+    this.placements = placements;
     const texture = createStarTexture();
     const makeUniforms = (intensity: number, sizeScale: number, maxFrac: number): StarUniforms => {
       const uniforms: StarUniforms = {
@@ -125,12 +129,14 @@ export class Starfield {
     );
     stars.renderOrder = 2;
     this.group.add(stars);
+    this.starPoints = stars;
   }
 
-  update(elapsedSeconds: number): void {
-    for (const uniforms of this.allUniforms) uniforms.uTime.value = elapsedSeconds;
+  /** Twinkle keeps its own clock so pausing rotation doesn't freeze the shimmer. */
+  update(twinkleSeconds: number, rotationSeconds: number): void {
+    for (const uniforms of this.allUniforms) uniforms.uTime.value = twinkleSeconds;
     // One majestic rotation every ~20 minutes; OrbitControls adds the rest.
-    this.group.rotation.y = elapsedSeconds * 0.005;
+    this.group.rotation.y = rotationSeconds * 0.005;
   }
 
   setOpacity(opacity: number): void {

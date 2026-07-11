@@ -18,12 +18,19 @@ node packages/server/dist/cli.js /path/to/any/repo --open
 ```
 
 ```
-git-galaxy [repo-path] [options]
+git-galaxy [path] [options]
 
+  path                  A git repository — or a directory of repositories
+                        (e.g. ~/repos), rendered as a universe of galaxies
   -p, --port <n>        Port to serve on (default: 4242)
-      --max-commits <n> Cap on commits fetched, newest first (default: 5000)
+      --max-commits <n> Cap on commits fetched per repo, newest first (default: 5000)
       --open            Open the browser once the galaxy is ready
 ```
+
+In the browser: drag to explore, scroll to zoom, **hover anything** for details
+(stars show the commit, planets the folder, satellites the file, suns the repo).
+`R` pauses/resumes galaxy rotation, `O` pauses/resumes orbital motion — or use
+the buttons in the corner.
 
 ## Development
 

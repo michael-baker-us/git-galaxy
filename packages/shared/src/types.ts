@@ -3,6 +3,13 @@
  * GalaxySnapshot once per run; the frontend never sees git directly.
  */
 
+/** One or many repos: pointing the CLI at a directory of repos yields a universe. */
+export interface UniverseSnapshot {
+  /** Epoch milliseconds. */
+  generatedAt: number;
+  galaxies: GalaxySnapshot[];
+}
+
 export interface GalaxySnapshot {
   meta: GalaxyMeta;
   /** Deduplicated author table; commits reference it by index. */

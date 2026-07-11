@@ -7,6 +7,7 @@ export type {
   GalaxyMeta,
   GalaxySnapshot,
   TreeNode,
+  UniverseSnapshot,
 } from "./types";
 
 export {
