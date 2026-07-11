@@ -32,6 +32,10 @@ In the browser: drag to explore, scroll to zoom, **hover anything** for details
 `R` pauses/resumes galaxy rotation, `O` pauses/resumes orbital motion — or use
 the buttons in the corner.
 
+**`F` boards the spaceship** 🚀 — mouse steers, `W`/`S` throttle, `A`/`D` roll,
+`Shift` boosts, `Esc` (or `F`) returns to orbit view aimed wherever you were
+heading.
+
 ## Development
 
 ```bash

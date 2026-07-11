@@ -11,7 +11,9 @@ import {
 import * as THREE from "three";
 import { fetchUniverse } from "./data/api";
 import { mockGalaxy } from "./data/mock";
+import { FlightController } from "./flight";
 import { OrbitSystem } from "./scene/OrbitSystem";
+import { createSpaceship } from "./scene/Spaceship";
 import { Starfield } from "./scene/Starfield";
 import { createBackdrop } from "./scene/backdrop";
 import { createScene } from "./scene/createScene";
@@ -241,6 +243,24 @@ function pick(): void {
   else tooltip.hide();
 }
 
+// ── Spaceship flight ─────────────────────────────────────────────────────
+const ship = createSpaceship();
+scene.add(ship.group);
+const flightBtn = document.createElement("button");
+const flight = new FlightController(ship, camera, canvas, (active) => {
+  flightBtn.textContent = active ? "🚀 exit flight (F)" : "🚀 fly (F)";
+  controls.enabled = !active;
+  if (active) {
+    tooltip.hide();
+  } else {
+    // Hand the view back to orbit controls, aimed where the ship was heading.
+    flight.lookTarget(controls.target);
+  }
+});
+flightBtn.textContent = "🚀 fly (F)";
+flightBtn.addEventListener("click", () => flight.toggle());
+controlsEl.appendChild(flightBtn);
+
 // ── Intro & loop ─────────────────────────────────────────────────────────
 const INTRO_SECONDS = 2.8;
 const introTarget = camera.position.clone();
@@ -269,11 +289,11 @@ renderer.setAnimationLoop(() => {
 
   if (!introDone) {
     const k = easeOutCubic(Math.min(1, twinkleTime / INTRO_SECONDS));
-    camera.position.lerpVectors(introStart, introTarget, k);
+    if (!flight.active) camera.position.lerpVectors(introStart, introTarget, k);
     for (const a of assemblies) a.starfield.setOpacity(k);
     if (twinkleTime >= INTRO_SECONDS) {
       introDone = true;
-      controls.enabled = true;
+      controls.enabled = !flight.active;
     }
   }
 
@@ -281,13 +301,18 @@ renderer.setAnimationLoop(() => {
     a.starfield.update(twinkleTime, rotationTime);
     a.orbits.update(orbitTime);
   }
-  controls.autoRotate = !userTookOver && !playback.rotationPaused;
-  controls.update();
 
-  // Throttled hover pick: cheap enough to feel live, never a frame hog.
-  if (twinkleTime - lastPickAt > 0.08) {
-    lastPickAt = twinkleTime;
-    pick();
+  if (flight.active) {
+    flight.update(dt);
+  } else {
+    controls.autoRotate = !userTookOver && !playback.rotationPaused;
+    controls.update();
+
+    // Throttled hover pick: cheap enough to feel live, never a frame hog.
+    if (twinkleTime - lastPickAt > 0.08) {
+      lastPickAt = twinkleTime;
+      pick();
+    }
   }
 
   render();
