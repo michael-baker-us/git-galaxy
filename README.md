@@ -44,8 +44,6 @@ Every object in the scene explains itself on hover — this star is a real commi
 
 ![Hovering a star shows the commit: subject, author, date, churn, hash](docs/media/tooltip.png)
 
-![Author color mode: each contributor's arm gets its own hue](docs/media/author-colors.png)
-
 Press `T` and the history unfolds from the first commit outward — here express is
 mid-playback in 2016, its outer rim still unborn:
 
