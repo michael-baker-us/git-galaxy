@@ -2,7 +2,7 @@
 
 Every repository becomes a galaxy. **Stars are commits. Planets are folders. Satellites are files.** Pure eye candy.
 
-Point it at any local git repo — or a whole directory of them — and explore your code's history as an animated 3D universe in the browser.
+Point it at any local git repo — or a whole directory of them — and explore your code's history as an animated 3D universe in the browser. Or press `F` and **fly through it in a Space Shuttle**.
 
 ![The express repo rendered as a spiral galaxy](docs/media/galaxy-express.png)
 
@@ -14,6 +14,16 @@ npm run build
 node packages/server/dist/cli.js /path/to/any/repo --open   # one repo → a galaxy
 node packages/server/dist/cli.js ~/repos --open             # many repos → a universe
 ```
+
+## The spaceship 🚀
+
+`F` spawns a low-poly Space Shuttle orbiter ahead of your view. Pointer-locked mouse steers, `W`/`S` throttle, `A`/`D` roll, `Shift` boosts. `Esc` or `F` hands you back to orbit controls, aimed wherever you were heading.
+
+![Flying the shuttle into a galactic core](docs/media/flight.png)
+
+While flying, the shuttle **scans whatever it passes** — the nearest commit, folder, or file appears in a HUD readout with its distance. Here, threading through express's nucleus, it's picked up a file 6.6 units away:
+
+![The proximity scanner reading out a file while flying through the nucleus](docs/media/flight-scan.png)
 
 ## What you're looking at
 
@@ -48,16 +58,6 @@ Press `T` and the history unfolds from the first commit outward — here express
 mid-playback in 2016, its outer rim still unborn:
 
 ![Timeline playback partway through express's history](docs/media/timeline.png)
-
-### The spaceship
-
-`F` spawns a low-poly Space Shuttle orbiter ahead of your view. Pointer-locked mouse steers, `W`/`S` throttle, `A`/`D` roll, `Shift` boosts. `Esc` or `F` hands you back to orbit controls, aimed wherever you were heading.
-
-![Flying the shuttle into a galactic core](docs/media/flight.png)
-
-While flying, the shuttle **scans whatever it passes** — the nearest commit, folder, or file appears in a HUD readout with its distance. Here, threading through express's nucleus, it's picked up a file 6.6 units away:
-
-![The proximity scanner reading out a file while flying through the nucleus](docs/media/flight-scan.png)
 
 ### Universe mode
 
