@@ -46,6 +46,11 @@ Every object in the scene explains itself on hover — this star is a real commi
 
 ![Author color mode: each contributor's arm gets its own hue](docs/media/author-colors.png)
 
+Press `T` and the history unfolds from the first commit outward — here express is
+mid-playback in 2016, its outer rim still unborn:
+
+![Timeline playback partway through express's history](docs/media/timeline.png)
+
 ### The spaceship
 
 `F` spawns a low-poly Space Shuttle orbiter ahead of your view. Pointer-locked mouse steers, `W`/`S` throttle, `A`/`D` roll, `Shift` boosts. `Esc` or `F` hands you back to orbit controls, aimed wherever you were heading.
