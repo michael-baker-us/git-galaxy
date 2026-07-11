@@ -36,6 +36,19 @@ const MIN_ARM_AUTHORS = 3;
 /** Radial jitter is uniform and bounded so radius stays a faithful time axis. */
 const RADIAL_JITTER = 2;
 
+/**
+ * Disc radius adapted to history length: a 20-commit repo gets a compact,
+ * cozy galaxy instead of 20 dots lost in a disc sized for thousands.
+ */
+export function galaxyRadius(commitCount: number): number {
+  return Math.min(100, Math.max(26, 100 * Math.sqrt(commitCount / 4000)));
+}
+
+/** Stars fatten as histories shrink, so sparse galaxies still feel luminous. */
+export function starSizeBoost(commitCount: number): number {
+  return Math.min(1.9, Math.max(1, 2.0 - commitCount / 1000));
+}
+
 export function layoutCommits(
   commits: Commit[],
   authors: Author[],
@@ -102,7 +115,7 @@ export function layoutCommits(
     const churn = commit.stats.insertions + commit.stats.deletions;
     let size = 0.8 + 0.35 * Math.log1p(churn);
     if (commit.parents.length > 1) size *= 1.3;
-    size = Math.min(4.5, Math.max(0.8, size));
+    size = Math.min(4.5, Math.max(0.8, size)) * starSizeBoost(total);
 
     placements.push({
       position: [Math.cos(angle) * radius, y, Math.sin(angle) * radius],

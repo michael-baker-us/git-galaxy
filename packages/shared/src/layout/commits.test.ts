@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Author, Commit } from "../types";
-import { layoutCommits } from "./commits";
+import { galaxyRadius, layoutCommits, starSizeBoost } from "./commits";
 
 function makeCommit(overrides: Partial<Commit> & { timestamp: number }): Commit {
   return {
@@ -40,6 +40,23 @@ function makeHistory(
   }
   return { commits, authors };
 }
+
+describe("galaxyRadius / starSizeBoost", () => {
+  it("shrinks the disc for short histories and clamps both ends", () => {
+    expect(galaxyRadius(0)).toBe(26);
+    expect(galaxyRadius(23)).toBe(26);
+    expect(galaxyRadius(4000)).toBe(100);
+    expect(galaxyRadius(50_000)).toBe(100);
+    expect(galaxyRadius(500)).toBeGreaterThan(26);
+    expect(galaxyRadius(500)).toBeLessThan(100);
+  });
+
+  it("boosts star size for sparse galaxies only", () => {
+    expect(starSizeBoost(23)).toBeCloseTo(1.9);
+    expect(starSizeBoost(5000)).toBe(1);
+    expect(starSizeBoost(500)).toBeGreaterThan(1);
+  });
+});
 
 describe("layoutCommits", () => {
   it("returns one placement per commit", () => {
@@ -113,7 +130,8 @@ describe("layoutCommits", () => {
     });
     const [pHuge, pTiny, pMerge, pPlain] = layoutCommits([huge, tiny, merge, plain], authors);
     if (!pHuge || !pTiny || !pMerge || !pPlain) throw new Error("empty layout");
-    expect(pHuge.size).toBeLessThanOrEqual(4.5);
+    const boost = starSizeBoost(4);
+    expect(pHuge.size).toBeLessThanOrEqual(4.5 * boost);
     expect(pTiny.size).toBeGreaterThanOrEqual(0.8);
     expect(pMerge.size).toBeGreaterThan(pPlain.size);
   });

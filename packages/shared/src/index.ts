@@ -16,7 +16,13 @@ export {
   hslToRgb,
   type Rgb,
 } from "./layout/color";
-export { type CommitLayoutOptions, layoutCommits, type StarPlacement } from "./layout/commits";
+export {
+  type CommitLayoutOptions,
+  galaxyRadius,
+  layoutCommits,
+  type StarPlacement,
+  starSizeBoost,
+} from "./layout/commits";
 export { createRng, hashString, type Rng } from "./layout/random";
 export {
   type BodyKind,

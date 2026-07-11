@@ -98,7 +98,7 @@ function materialFor(p: BodyPlacement): THREE.MeshStandardMaterial {
     return new THREE.MeshStandardMaterial({
       color,
       emissive: color,
-      emissiveIntensity: 1.4,
+      emissiveIntensity: 0.85,
     });
   }
   return new THREE.MeshStandardMaterial({
@@ -106,7 +106,7 @@ function materialFor(p: BodyPlacement): THREE.MeshStandardMaterial {
     roughness: 0.6,
     metalness: 0.05,
     emissive: color,
-    emissiveIntensity: p.kind === "file" ? 0.75 : 0.4,
+    emissiveIntensity: p.kind === "file" ? 0.55 : 0.3,
   });
 }
 

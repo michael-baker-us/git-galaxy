@@ -68,6 +68,13 @@ git binary ──execFile──> LocalGitRepoSource ──parsers──> GalaxyS
   future raycast tooltips. (Shader-driven motion would obscure them.)
 - **Payload sanity**: commits capped at 5,000 newest (`--max-commits`), 12-char hashes,
   80-char subjects, deduped author table → express (6,156 commits) is a ~1 MB JSON payload.
+- **Adaptive scale**: `galaxyRadius(commitCount)` shrinks the disc for short histories and
+  `starSizeBoost` fattens the stars, so a 23-commit repo reads as a compact luminous cluster
+  instead of a few dots lost in a disc sized for thousands. Camera framing and the folder
+  system's hover height follow the disc radius.
+- **Bloom**: `UnrealBloomPass` (low threshold — the scene is mostly black) + `OutputPass`.
+  Exposure is balanced against emissive intensities and the additive core-glow sprite;
+  turning any one of them up washes the frame out.
 
 ## Workspace shape
 
@@ -80,7 +87,6 @@ git binary ──execFile──> LocalGitRepoSource ──parsers──> GalaxyS
 
 ## Deliberately deferred
 
-Bloom postprocessing (`UnrealBloomPass`), hover tooltips (raycast → commit subject/author),
-timeline playback (stars ignite in commit order), author-color mode toggle, GitHub source,
-`--watch` re-parse, CI. The seams for all of these exist; none of them require reshaping
-what's here.
+Hover tooltips (raycast → commit subject/author), timeline playback (stars ignite in commit
+order), author-color mode toggle, GitHub source, `--watch` re-parse, CI. The seams for all
+of these exist; none of them require reshaping what's here.

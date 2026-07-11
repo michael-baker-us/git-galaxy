@@ -1,10 +1,10 @@
-import { type GalaxySnapshot, layoutCommits, layoutTree } from "@git-galaxy/shared";
+import { type GalaxySnapshot, galaxyRadius, layoutCommits, layoutTree } from "@git-galaxy/shared";
 import * as THREE from "three";
 import { fetchGalaxy } from "./data/api";
 import { mockGalaxy } from "./data/mock";
 import { OrbitSystem } from "./scene/OrbitSystem";
 import { Starfield } from "./scene/Starfield";
-import { createBackdrop } from "./scene/backdrop";
+import { createBackdrop, createCoreGlow } from "./scene/backdrop";
 import { createScene } from "./scene/createScene";
 import { renderHud } from "./ui/hud";
 
@@ -22,24 +22,33 @@ try {
 }
 renderHud(hud, snapshot, note);
 
-const { renderer, scene, camera, controls, onResize } = createScene(canvas);
+const { renderer, scene, camera, controls, render, onResize } = createScene(canvas);
 
 scene.add(createBackdrop());
 
-const stars = layoutCommits(snapshot.commits, snapshot.authors);
+// Small histories get a compact disc, fatter stars, and a closer camera.
+const discRadius = galaxyRadius(snapshot.commits.length);
+const stars = layoutCommits(snapshot.commits, snapshot.authors, { maxRadius: discRadius });
 const starfield = new Starfield(stars);
 scene.add(starfield.points);
+if (snapshot.commits.length > 0) scene.add(createCoreGlow(discRadius));
 onResize((heightPx) => starfield.setViewportHeight(heightPx, camera.fov));
 
 // The living codebase hovers above the plane of its own history.
+const systemY = Math.min(55, discRadius * 0.55 + 20);
 const orbits = new OrbitSystem(layoutTree(snapshot.tree));
-orbits.group.position.set(0, 55, 0);
+orbits.group.position.set(0, systemY, 0);
 scene.add(orbits.group);
 scene.add(new THREE.AmbientLight(0x8899bb, 0.4));
 
+// Frame the whole composition — disc below, folder system above.
+const frame = Math.max(150, discRadius * 2.6);
+camera.position.set(0, frame * 0.46, frame);
+controls.target.set(0, systemY * 0.4, 0);
+
 // Deep-link straight to the folder system (handy while developing).
 if (location.hash === "#system") {
-  camera.position.set(0, 80, 75);
+  camera.position.set(0, systemY + 25, 75);
   controls.target.copy(orbits.group.position);
 }
 
@@ -70,5 +79,5 @@ renderer.setAnimationLoop(() => {
   starfield.update(t);
   orbits.update(t);
   controls.update();
-  renderer.render(scene, camera);
+  render();
 });

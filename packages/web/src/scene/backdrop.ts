@@ -45,7 +45,7 @@ export function createBackdrop(seed = 7): THREE.Group {
       map: texture,
       color,
       transparent: true,
-      opacity: 0.045,
+      opacity: 0.025,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
@@ -61,4 +61,19 @@ export function createBackdrop(seed = 7): THREE.Group {
   }
 
   return group;
+}
+
+/** Warm additive glow over the galactic bulge — reads as billions of unresolved stars. */
+export function createCoreGlow(galaxyRadius: number): THREE.Sprite {
+  const material = new THREE.SpriteMaterial({
+    map: createStarTexture(128),
+    color: 0xffd9a0,
+    transparent: true,
+    opacity: 0.1,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.setScalar(galaxyRadius * 1.6);
+  return sprite;
 }
