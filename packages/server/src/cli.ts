@@ -47,6 +47,7 @@ async function main(): Promise<void> {
   }
 
   const repoPath = resolve(positionals[0] ?? process.cwd());
+  await assertPortFree(port);
   const source = new LocalGitRepoSource(repoPath);
   await source.validate();
 
@@ -72,6 +73,26 @@ async function main(): Promise<void> {
   const url = `http://localhost:${port}`;
   console.log(`✦ galaxy ready → ${url}`);
   if (values.open) openBrowser(url);
+}
+
+/**
+ * A dual-stack quirk lets a second server "successfully" bind the IPv4 side
+ * of a port whose IPv6 side another instance holds — the browser then talks
+ * to the old instance while the new one reports ready. Probe before binding
+ * and refuse the port if anything already answers on it.
+ */
+async function assertPortFree(port: number): Promise<void> {
+  let body: { repo?: string } | null = null;
+  try {
+    const res = await fetch(`http://localhost:${port}/api/health`, {
+      signal: AbortSignal.timeout(700),
+    });
+    body = (await res.json().catch(() => null)) as { repo?: string } | null;
+  } catch {
+    return; // nothing answered — the port is ours
+  }
+  const who = body?.repo ? `another git-galaxy serving "${body.repo}"` : "another process";
+  throw new GitError(`port ${port} is already in use by ${who} — stop it or pass --port <n>`);
 }
 
 function openBrowser(url: string): void {
