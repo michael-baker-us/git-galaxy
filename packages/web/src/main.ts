@@ -1,10 +1,12 @@
 import {
   type BodyPlacement,
   type GalaxySnapshot,
+  type Rgb,
   type TreeNode,
   type UniverseSnapshot,
   galaxyRadius,
   hashString,
+  hslToRgb,
   layoutCommits,
   layoutTree,
 } from "@git-galaxy/shared";
@@ -20,13 +22,20 @@ import { createScene } from "./scene/createScene";
 import { createLabel } from "./scene/label";
 import { mountControls } from "./ui/controls";
 import { renderHud } from "./ui/hud";
+import { mountTimeline } from "./ui/timeline";
 import { createTooltip, escapeHtml, formatBytes } from "./ui/tooltip";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#scene");
 const hud = document.querySelector<HTMLElement>("#hud");
 const controlsEl = document.querySelector<HTMLElement>("#controls");
 const tooltipEl = document.querySelector<HTMLElement>("#tooltip");
-if (!canvas || !hud || !controlsEl || !tooltipEl) throw new Error("missing DOM scaffolding");
+const timelineEl = document.querySelector<HTMLElement>("#timeline");
+const scannerEl = document.querySelector<HTMLElement>("#scanner");
+if (!canvas || !hud || !controlsEl || !tooltipEl || !timelineEl || !scannerEl) {
+  throw new Error("missing DOM scaffolding");
+}
+// Hoisted functions (scan) don't inherit the narrowing above.
+const scannerBox: HTMLElement = scannerEl;
 
 let universe: UniverseSnapshot;
 let note: string | undefined;
@@ -52,6 +61,20 @@ interface GalaxyAssembly {
   discRadius: number;
 }
 
+// Universe-wide time range so multi-repo timelines ignite in true order.
+let universeMinTs = Number.POSITIVE_INFINITY;
+let universeMaxTs = Number.NEGATIVE_INFINITY;
+for (const g of universe.galaxies) {
+  for (const c of g.commits) {
+    if (c.timestamp < universeMinTs) universeMinTs = c.timestamp;
+    if (c.timestamp > universeMaxTs) universeMaxTs = c.timestamp;
+  }
+}
+const universeTsSpan = Math.max(1, universeMaxTs - universeMinTs);
+
+/** Stable, well-separated hue per author (golden-angle around the wheel). */
+const authorColor = (authorId: number): Rgb => hslToRgb((authorId * 137.508) % 360, 0.72, 0.66);
+
 function buildGalaxy(snapshot: GalaxySnapshot): GalaxyAssembly {
   const group = new THREE.Group();
 
@@ -63,13 +86,18 @@ function buildGalaxy(snapshot: GalaxySnapshot): GalaxyAssembly {
 
   const innerHole = orbits.reach + 8;
   const discRadius = Math.max(galaxyRadius(snapshot.commits.length), innerHole + 35);
-  const starfield = new Starfield(
-    layoutCommits(snapshot.commits, snapshot.authors, {
-      maxRadius: discRadius,
-      minRadius: innerHole,
-      seed: hashString(snapshot.meta.repoName) || 1,
+  const placements = layoutCommits(snapshot.commits, snapshot.authors, {
+    maxRadius: discRadius,
+    minRadius: innerHole,
+    seed: hashString(snapshot.meta.repoName) || 1,
+  });
+  const starfield = new Starfield(placements, {
+    births: placements.map((p) => {
+      const ts = snapshot.commits[p.commitIndex]?.timestamp ?? universeMinTs;
+      return (ts - universeMinTs) / universeTsSpan;
     }),
-  );
+    altColors: placements.map((p) => authorColor(snapshot.commits[p.commitIndex]?.authorId ?? 0)),
+  });
   group.add(starfield.group);
 
   const nodeByPath = new Map<string, TreeNode>();
@@ -243,6 +271,33 @@ function pick(): void {
   else tooltip.hide();
 }
 
+// ── Timeline playback ────────────────────────────────────────────────────
+const TIMELINE_SECONDS = 30;
+const timeline = { t: 1, playing: false };
+const dateLabelFor = (t: number): string => {
+  if (!Number.isFinite(universeMinTs)) return "";
+  const ts = universeMinTs + t * (universeMaxTs - universeMinTs);
+  return new Date(ts * 1000).toISOString().slice(0, 10);
+};
+const timelineUi = mountTimeline(timelineEl, {
+  onScrub(t) {
+    timeline.t = t;
+    timeline.playing = false;
+    timelineUi.setPlaying(false);
+    applyTimeline();
+  },
+  onTogglePlay() {
+    if (!timeline.playing && timeline.t >= 1) timeline.t = 0; // replay from the big bang
+    timeline.playing = !timeline.playing;
+    timelineUi.setPlaying(timeline.playing);
+  },
+});
+function applyTimeline(): void {
+  for (const a of assemblies) a.starfield.setTimeline(timeline.t);
+  timelineUi.sync(timeline.t, dateLabelFor(timeline.t));
+}
+applyTimeline();
+
 // ── Spaceship flight ─────────────────────────────────────────────────────
 const ship = createSpaceship();
 scene.add(ship.group);
@@ -253,6 +308,7 @@ const flight = new FlightController(ship, camera, canvas, (active) => {
   if (active) {
     tooltip.hide();
   } else {
+    scannerEl.style.display = "none";
     // Hand the view back to orbit controls, aimed where the ship was heading.
     flight.lookTarget(controls.target);
   }
@@ -260,6 +316,60 @@ const flight = new FlightController(ship, camera, canvas, (active) => {
 flightBtn.textContent = "🚀 fly (F)";
 flightBtn.addEventListener("click", () => flight.toggle());
 controlsEl.appendChild(flightBtn);
+
+// Proximity scanner: cursor tooltips don't exist in flight, so the shuttle
+// scans whatever it flies close to instead.
+const BODY_SCAN_RANGE = 30;
+const STAR_SCAN_RANGE = 12;
+const scanVec = new THREE.Vector3();
+const scanLocal = new THREE.Vector3();
+let lastScanAt = 0;
+
+function scan(): void {
+  let bestHtml: string | null = null;
+  let bestDist = Number.POSITIVE_INFINITY;
+  const shipPos = ship.group.position;
+
+  for (const [object, assembly] of bodyOwner) {
+    const d = object.getWorldPosition(scanVec).distanceTo(shipPos);
+    if (d < BODY_SCAN_RANGE && d < bestDist) {
+      const body = object.userData.body as BodyPlacement | undefined;
+      if (body) {
+        bestDist = d;
+        bestHtml = bodyTooltip(assembly, body);
+      }
+    }
+  }
+
+  for (const [points, assembly] of starTargets) {
+    // Compare in the starfield's local space (rotating disc, unscaled).
+    scanLocal.copy(shipPos);
+    points.worldToLocal(scanLocal);
+    const placements = assembly.starfield.placements;
+    for (let i = 0; i < placements.length; i++) {
+      const pos = placements[i]?.position;
+      if (!pos) continue;
+      const dx = pos[0] - scanLocal.x;
+      const dy = pos[1] - scanLocal.y;
+      const dz = pos[2] - scanLocal.z;
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d < STAR_SCAN_RANGE && d < bestDist) {
+        const html = starTooltip(assembly, i);
+        if (html) {
+          bestDist = d;
+          bestHtml = html;
+        }
+      }
+    }
+  }
+
+  if (bestHtml) {
+    scannerBox.innerHTML = `<div class="scanlabel">◈ SCAN · ${bestDist.toFixed(1)}u</div>${bestHtml}`;
+    scannerBox.style.display = "block";
+  } else {
+    scannerBox.style.display = "none";
+  }
+}
 
 // ── Intro & loop ─────────────────────────────────────────────────────────
 const INTRO_SECONDS = 2.8;
@@ -276,6 +386,7 @@ const clock = new THREE.Clock();
 let twinkleTime = 0;
 let rotationTime = 0;
 let orbitTime = 0;
+let colorMix = 0;
 
 /** Back to the first-open experience: intro replays, everything unpaused. */
 function resetView(): void {
@@ -284,6 +395,10 @@ function resetView(): void {
   userTookOver = false;
   rotationTime = 0;
   orbitTime = 0;
+  timeline.t = 1;
+  timeline.playing = false;
+  timelineUi.setPlaying(false);
+  applyTimeline();
   tooltip.hide();
   camera.up.set(0, 1, 0);
   camera.position.copy(introStart);
@@ -315,6 +430,22 @@ renderer.setAnimationLoop(() => {
     }
   }
 
+  if (timeline.playing) {
+    timeline.t = Math.min(1, timeline.t + dt / TIMELINE_SECONDS);
+    if (timeline.t >= 1) {
+      timeline.playing = false;
+      timelineUi.setPlaying(false);
+    }
+    applyTimeline();
+  }
+
+  const mixTarget = playback.authorColors ? 1 : 0;
+  if (Math.abs(colorMix - mixTarget) > 0.001) {
+    colorMix += (mixTarget - colorMix) * Math.min(1, dt * 6);
+    if (Math.abs(colorMix - mixTarget) < 0.001) colorMix = mixTarget;
+    for (const a of assemblies) a.starfield.setColorMix(colorMix);
+  }
+
   for (const a of assemblies) {
     a.starfield.update(twinkleTime, rotationTime);
     a.orbits.update(orbitTime);
@@ -322,6 +453,10 @@ renderer.setAnimationLoop(() => {
 
   if (flight.active) {
     flight.update(dt);
+    if (twinkleTime - lastScanAt > 0.15) {
+      lastScanAt = twinkleTime;
+      scan();
+    }
   } else {
     controls.autoRotate = !userTookOver && !playback.rotationPaused;
     controls.update();

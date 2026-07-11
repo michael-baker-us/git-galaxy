@@ -32,9 +32,16 @@ In the browser: drag to explore, scroll to zoom, **hover anything** for details
 `R` pauses/resumes galaxy rotation, `O` pauses/resumes orbital motion — or use
 the buttons in the corner.
 
+**`T` plays the repo's history** — stars ignite in commit order with a
+scrubber and date readout; watch the arms grow as contributors join.
+**`C` switches star colors** between age (temperature ramp) and author
+(each contributor a distinct hue — see who works where).
+
 **`F` boards the spaceship** 🚀 — mouse steers, `W`/`S` throttle, `A`/`D` roll,
 `Shift` boosts, `Esc` (or `F`) returns to orbit view aimed wherever you were
-heading. **`H` resets** everything to the first-open view, intro and all.
+heading. While flying, the shuttle **scans** whatever it passes close to —
+commits, folders, files — in a HUD readout. **`H` resets** everything to the
+first-open view, intro and all.
 
 ## Development
 
