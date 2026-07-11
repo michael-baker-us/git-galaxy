@@ -25,6 +25,8 @@ const SPHERE = new THREE.SphereGeometry(1, 24, 16);
 
 export class OrbitSystem {
   readonly group = new THREE.Group();
+  /** World-space radius of the whole system after fit-to-scale. */
+  reach = 0;
   private readonly bodies: OrbitingBody[] = [];
 
   constructor(placements: BodyPlacement[]) {
@@ -85,6 +87,7 @@ export class OrbitSystem {
     if (maxReach > TARGET_MAX_REACH) {
       this.group.scale.setScalar(TARGET_MAX_REACH / maxReach);
     }
+    this.reach = Math.min(maxReach, TARGET_MAX_REACH);
   }
 
   update(elapsedSeconds: number): void {

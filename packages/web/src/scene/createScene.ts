@@ -49,9 +49,9 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
   composer.addPass(new RenderPass(scene, camera));
   const bloom = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.22,
+    0.45,
     0.32,
-    0.5,
-    0.28,
   );
   composer.addPass(bloom);
   composer.addPass(new OutputPass());

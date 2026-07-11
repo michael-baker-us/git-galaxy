@@ -7,7 +7,7 @@ Point it at any local git repo and it renders that repo as an animated 3D galaxy
 - The **galactic disc is time** — the dense core is the project's earliest history, the rim is now.
 - The most prolific **authors each own a spiral arm**; everyone else scatters as field stars.
 - Star **color is a temperature ramp over age** (newest burn blue-white, oldest fade to deep red), and star **size follows churn** — big refactors blaze, typo fixes twinkle. Merges get a brightness bonus.
-- The file tree at HEAD hovers above the plane as a **solar system**: the root folder is the sun, subfolders orbit as planets (Kepler's third law, so inner bodies visibly outrun outer ones), and files swarm as satellites colored by extension.
+- The file tree at HEAD is the **galactic nucleus**: a solar system at the center of its own history — the root folder is the sun, subfolders orbit as planets on tilted planes (Kepler's third law, so inner bodies visibly outrun outer ones), and files swarm as satellites colored by extension.
 
 ## Usage
 

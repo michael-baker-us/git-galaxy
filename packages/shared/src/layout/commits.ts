@@ -22,6 +22,8 @@ export interface StarPlacement {
 
 export interface CommitLayoutOptions {
   maxRadius?: number;
+  /** Inner hole radius — history starts spiraling outside this (the folder system lives inside). */
+  minRadius?: number;
   /** Maximum number of author spiral arms. */
   armCount?: number;
   /** Radians of spiral twist accumulated from core to rim. */
@@ -54,7 +56,15 @@ export function layoutCommits(
   authors: Author[],
   options: CommitLayoutOptions = {},
 ): StarPlacement[] {
-  const { maxRadius = 100, armCount = 6, twist = 2.6, thickness = 5, seed = 1 } = options;
+  const {
+    maxRadius = 100,
+    minRadius = 0,
+    armCount = 6,
+    twist = 2.6,
+    thickness = 5,
+    seed = 1,
+  } = options;
+  const band = Math.max(1, maxRadius - minRadius);
   const total = commits.length;
   if (total === 0) return [];
 
@@ -89,26 +99,27 @@ export function layoutCommits(
     const r = rank[i];
     if (commit === undefined || r === undefined) continue;
 
-    let radius = maxRadius * Math.sqrt((r + 0.5) / total);
+    let radius = minRadius + band * Math.sqrt((r + 0.5) / total);
     let angle: number;
     if (phyllotaxis) {
       angle = r * GOLDEN_ANGLE;
     } else {
       const arm = armOfAuthor.get(commit.authorId);
+      const bandFraction = (radius - minRadius) / band;
       if (arm !== undefined) {
         const base = (arm / arms) * 2 * Math.PI;
         // Logarithmic-ish arm: twist grows with radius; arms blur near the core.
-        const spread = 0.14 + 0.3 * (1 - radius / maxRadius);
-        angle = base + twist * (radius / maxRadius) + rng.gaussian() * spread;
+        const spread = 0.14 + 0.3 * (1 - bandFraction);
+        angle = base + twist * bandFraction + rng.gaussian() * spread;
         radius += rng.range(-RADIAL_JITTER, RADIAL_JITTER);
       } else {
         angle = rng.range(0, 2 * Math.PI);
       }
     }
-    radius = Math.max(0.5, radius);
+    radius = Math.max(minRadius > 0 ? minRadius - RADIAL_JITTER : 0.5, radius);
 
-    // Central bulge: the disc swells into a spheroid toward the core.
-    const bulge = Math.max(0.35, 1.6 - 1.25 * (radius / maxRadius));
+    // Central bulge: the disc swells into a spheroid toward its inner edge.
+    const bulge = Math.max(0.35, 1.6 - 1.25 * ((radius - minRadius) / band));
     let y = rng.gaussian() * thickness * bulge;
     // A sparse thick-disc/halo population lives well off the plane —
     // this is what makes the galaxy read as a volume, not a sheet.

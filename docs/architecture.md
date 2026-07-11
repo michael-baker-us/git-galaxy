@@ -20,7 +20,10 @@
 
 ### Planets & satellites = the tree at HEAD
 
-A "home system" offset +55 on Y so it hovers above its own history:
+The living codebase is the **galactic nucleus**: the folder system sits at the center
+(tilted a few degrees off the disc plane), and the commit disc spirals around it starting
+just outside the system's reach (`minRadius` on the commit layout). One celestial object —
+the code at the heart of the history that produced it.
 
 - Root folder = the sun (emissive + the system's point light).
 - Subfolders = planets orbiting their parent; nesting capped at depth 4.
@@ -73,8 +76,11 @@ git binary ──execFile──> LocalGitRepoSource ──parsers──> GalaxyS
   instead of a few dots lost in a disc sized for thousands. Camera framing and the folder
   system's hover height follow the disc radius.
 - **Bloom**: `UnrealBloomPass` (low threshold — the scene is mostly black) + `OutputPass`.
-  Exposure is balanced against emissive intensities and the additive core-glow sprite;
-  turning any one of them up washes the frame out.
+  Exposure is balanced against emissive intensities; turning any one of them up washes the
+  frame out.
+- **Additive saturation control**: where many star sprites overlap they sum to pure white,
+  so per-star intensity scales down with star count (`intensityFor` in Starfield) — total
+  light stays roughly constant whether the field has 30 stars or 5,000.
 
 ## Workspace shape
 

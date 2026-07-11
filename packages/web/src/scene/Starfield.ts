@@ -23,15 +23,25 @@ const VERTEX_SHADER = /* glsl */ `
 const FRAGMENT_SHADER = /* glsl */ `
   uniform sampler2D uTexture;
   uniform float uOpacity;
+  uniform float uIntensity;
   varying vec3 vColor;
   varying float vTwinkle;
 
   void main() {
     float alpha = texture2D(uTexture, gl_PointCoord).a;
     if (alpha < 0.01) discard;
-    gl_FragColor = vec4(vColor, alpha * uOpacity * vTwinkle);
+    gl_FragColor = vec4(vColor, alpha * uOpacity * uIntensity * vTwinkle);
   }
 `;
+
+/**
+ * Additive blending saturates to white where many sprites overlap, so dense
+ * fields get dimmer individual stars — total light stays roughly constant.
+ */
+function intensityFor(starCount: number): number {
+  if (starCount <= 800) return 1;
+  return Math.max(0.4, 1 - (starCount - 800) / 8000);
+}
 
 /** One draw call for the whole commit history: THREE.Points + additive glow. */
 export class Starfield {
@@ -41,6 +51,7 @@ export class Starfield {
     uTexture: THREE.IUniform<THREE.Texture>;
     uTime: THREE.IUniform<number>;
     uOpacity: THREE.IUniform<number>;
+    uIntensity: THREE.IUniform<number>;
     uPixelScale: THREE.IUniform<number>;
   };
 
@@ -67,6 +78,7 @@ export class Starfield {
       uTexture: { value: createStarTexture() },
       uTime: { value: 0 },
       uOpacity: { value: 1 },
+      uIntensity: { value: intensityFor(n) },
       uPixelScale: { value: 600 },
     };
     this.material = new THREE.ShaderMaterial({
@@ -94,6 +106,6 @@ export class Starfield {
   /** Keep on-screen star size proportional to viewport height. */
   setViewportHeight(heightPx: number, fovDegrees: number): void {
     const fovRadians = (fovDegrees * Math.PI) / 180;
-    this.uniforms.uPixelScale.value = (heightPx / (2 * Math.tan(fovRadians / 2))) * 1.4;
+    this.uniforms.uPixelScale.value = (heightPx / (2 * Math.tan(fovRadians / 2))) * 1.15;
   }
 }

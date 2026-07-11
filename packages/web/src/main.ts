@@ -4,7 +4,7 @@ import { fetchGalaxy } from "./data/api";
 import { mockGalaxy } from "./data/mock";
 import { OrbitSystem } from "./scene/OrbitSystem";
 import { Starfield } from "./scene/Starfield";
-import { createBackdrop, createCoreGlow } from "./scene/backdrop";
+import { createBackdrop } from "./scene/backdrop";
 import { createScene } from "./scene/createScene";
 import { renderHud } from "./ui/hud";
 
@@ -26,31 +26,33 @@ const { renderer, scene, camera, controls, render, onResize } = createScene(canv
 
 scene.add(createBackdrop());
 
-// Small histories get a compact disc, fatter stars, and a closer camera.
-const discRadius = galaxyRadius(snapshot.commits.length);
-const stars = layoutCommits(snapshot.commits, snapshot.authors, { maxRadius: discRadius });
-const starfield = new Starfield(stars);
-scene.add(starfield.points);
-if (snapshot.commits.length > 0) scene.add(createCoreGlow(discRadius));
-onResize((heightPx) => starfield.setViewportHeight(heightPx, camera.fov));
-
-// The living codebase hovers above the plane of its own history.
-const systemY = Math.min(55, discRadius * 0.55 + 20);
+// The living codebase sits at the galactic center; its history spirals
+// around it. The system is tilted a few degrees off the disc plane so the
+// two read as one object with structure, not two stacked plates.
 const orbits = new OrbitSystem(layoutTree(snapshot.tree));
-orbits.group.position.set(0, systemY, 0);
+orbits.group.rotation.set(0.16, 0, 0.1);
 scene.add(orbits.group);
 scene.add(new THREE.AmbientLight(0x8899bb, 0.4));
 
-// Frame the whole composition — disc below, folder system above. A lowish
-// camera angle keeps the disc's depth visible instead of flattening it.
-const frame = Math.max(150, discRadius * 2.6);
-camera.position.set(0, frame * 0.28, frame);
-controls.target.set(0, systemY * 0.4, 0);
+// The commit disc starts just outside the system and spirals outward in time.
+const innerHole = orbits.reach + 8;
+const discRadius = Math.max(galaxyRadius(snapshot.commits.length), innerHole + 35);
+const stars = layoutCommits(snapshot.commits, snapshot.authors, {
+  maxRadius: discRadius,
+  minRadius: innerHole,
+});
+const starfield = new Starfield(stars);
+scene.add(starfield.points);
+onResize((heightPx) => starfield.setViewportHeight(heightPx, camera.fov));
+
+// A lowish camera angle keeps the disc's depth visible instead of flattening it.
+const frame = Math.max(160, discRadius * 2.3);
+camera.position.set(0, frame * 0.3, frame);
+controls.target.set(0, 0, 0);
 
 // Deep-link straight to the folder system (handy while developing).
 if (location.hash === "#system") {
-  camera.position.set(0, systemY + 25, 75);
-  controls.target.copy(orbits.group.position);
+  camera.position.set(0, orbits.reach * 0.8 + 12, orbits.reach * 1.6 + 20);
 }
 
 // Intro: dolly in from deep space while the stars resolve.
