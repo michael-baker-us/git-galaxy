@@ -15,7 +15,6 @@ import { fetchUniverse } from "./data/api";
 import { GitHubFetchError, fetchGitHubUniverse } from "./data/github";
 import { mockGalaxy } from "./data/mock";
 import { FlightController } from "./flight";
-import { createCockpit } from "./scene/Cockpit";
 import { OrbitSystem } from "./scene/OrbitSystem";
 import { createSpaceship } from "./scene/Spaceship";
 import { Starfield } from "./scene/Starfield";
@@ -443,14 +442,6 @@ applyTimeline();
 // ── Spaceship flight ─────────────────────────────────────────────────────
 const ship = createSpaceship();
 scene.add(ship.group);
-// The cockpit rides the camera itself; the camera must be in the scene graph
-// for its children to render.
-scene.add(camera);
-const cockpit = createCockpit();
-camera.add(cockpit);
-const syncCockpit = () => {
-  cockpit.visible = flight.active && flight.viewMode === "cockpit";
-};
 const flightBtn = document.createElement("button");
 const flight = new FlightController(ship, camera, canvas, (active) => {
   flightBtn.textContent = active ? "🚀 exit (F)" : "🚀 fly (F)";
@@ -460,7 +451,6 @@ const flight = new FlightController(ship, camera, canvas, (active) => {
   tiltBtn.style.display = active && isTouch ? "" : "none";
   viewBtn.style.display = active ? "" : "none";
   syncViewLabel();
-  syncCockpit();
   if (active && isTouch) {
     syncTiltLabel();
     // Tilt was on last time — re-arm it (iOS may still veto without a tap).
@@ -526,7 +516,6 @@ const syncViewLabel = () => {
 viewBtn.addEventListener("click", () => {
   flight.toggleView();
   syncViewLabel();
-  syncCockpit();
 });
 window.addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -700,15 +689,6 @@ renderer.setAnimationLoop(() => {
     if (speed !== lastSpeedShown) {
       lastSpeedShown = speed;
       speedReadout.textContent = `${speed}u/s`;
-    }
-    if (cockpit.visible) {
-      // Engine rumble, scaled by speed — barely visible, definitely felt.
-      const amp = 0.004 * (flight.currentSpeed / 350);
-      cockpit.position.set(
-        Math.sin(twinkleTime * 23.7) * amp,
-        Math.cos(twinkleTime * 31.3) * amp * 0.7,
-        0,
-      );
     }
     if (twinkleTime - lastScanAt > 0.15) {
       lastScanAt = twinkleTime;
