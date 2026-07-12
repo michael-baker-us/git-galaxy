@@ -179,7 +179,7 @@
         display: none;
         position: fixed;
         right: 12px;
-        bottom: 14px;
+        bottom: 64px; /* clear of the desktop timeline bar */
         flex-direction: column;
         align-items: stretch;
         gap: 4px;
@@ -328,6 +328,9 @@
           right: 12px;
           transform: none;
           max-width: none;
+        }
+        #throttle {
+          bottom: 14px; /* timeline hides during touch flight */
         }
       }
     </style>
