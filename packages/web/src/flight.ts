@@ -26,6 +26,10 @@ const THROTTLE_RATE = 90;
 
 const FORWARD = new THREE.Vector3(0, 0, -1);
 const CHASE_OFFSET = new THREE.Vector3(0, 2.4, 9.5);
+/** Cockpit view: rigid at the nose — damping here reads as seasickness. */
+const COCKPIT_OFFSET = new THREE.Vector3(0, 0.5, -0.4);
+
+export type FlightView = "chase" | "cockpit";
 
 export class FlightController {
   active = false;
@@ -36,6 +40,7 @@ export class FlightController {
   private dragX = 0;
   private dragY = 0;
   private throttleInput: -1 | 0 | 1 = 0;
+  viewMode: FlightView = "chase";
   tiltEnabled = false;
   private tiltBaseline: { beta: number; gamma: number } | null = null;
   private tiltNow: { beta: number; gamma: number } | null = null;
@@ -119,6 +124,12 @@ export class FlightController {
     return this.speed;
   }
 
+  /** Chase ↔ cockpit. In the cockpit the hull hides — you ARE the ship. */
+  toggleView(): void {
+    this.viewMode = this.viewMode === "chase" ? "cockpit" : "chase";
+    if (this.active) this.ship.group.visible = this.viewMode === "chase";
+  }
+
   /**
    * Tilt-to-steer. Resolves false when the device refuses (iOS requires a
    * user-gesture permission; desktops have no sensor).
@@ -158,7 +169,7 @@ export class FlightController {
     if (this.active) return;
     this.active = true;
     const { group } = this.ship;
-    group.visible = true;
+    group.visible = this.viewMode === "chase";
     // Spawn just ahead of the current view, facing the same way.
     const dir = this.camera.getWorldDirection(this.scratch.v);
     group.position.copy(this.camera.position).addScaledVector(dir, 18);
@@ -235,9 +246,17 @@ export class FlightController {
     group.position.addScaledVector(v, effective * dt);
     this.ship.setThrust(effective / (MAX_SPEED * BOOST));
 
-    // Chase camera: damped follow in position and orientation.
-    const desired = v.copy(CHASE_OFFSET).applyQuaternion(group.quaternion).add(group.position);
-    this.camera.position.lerp(desired, 1 - Math.exp(-6 * dt));
-    this.camera.quaternion.slerp(group.quaternion, 1 - Math.exp(-8 * dt));
+    if (this.viewMode === "cockpit") {
+      // Rigid mount at the nose: what the ship does, you feel instantly.
+      this.camera.position
+        .copy(v.copy(COCKPIT_OFFSET).applyQuaternion(group.quaternion))
+        .add(group.position);
+      this.camera.quaternion.copy(group.quaternion);
+    } else {
+      // Chase camera: damped follow in position and orientation.
+      const desired = v.copy(CHASE_OFFSET).applyQuaternion(group.quaternion).add(group.position);
+      this.camera.position.lerp(desired, 1 - Math.exp(-6 * dt));
+      this.camera.quaternion.slerp(group.quaternion, 1 - Math.exp(-8 * dt));
+    }
   }
 }

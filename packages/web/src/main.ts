@@ -449,6 +449,8 @@ const flight = new FlightController(ship, camera, canvas, (active) => {
   // The rocker buttons are touch-only, but the speed readout flies everywhere.
   throttleEl.style.display = active ? "flex" : "none";
   tiltBtn.style.display = active && isTouch ? "" : "none";
+  viewBtn.style.display = active ? "" : "none";
+  syncViewLabel();
   if (active && isTouch) {
     syncTiltLabel();
     // Tilt was on last time — re-arm it (iOS may still veto without a tap).
@@ -503,6 +505,23 @@ for (const [btn, dir] of [
   }
 }
 document.body.appendChild(throttleEl);
+
+// Cockpit ↔ chase view toggle, on the flight deck everywhere.
+const viewBtn = document.createElement("button");
+viewBtn.className = "flight-btn";
+viewBtn.style.display = "none";
+const syncViewLabel = () => {
+  viewBtn.textContent = flight.viewMode === "cockpit" ? "🎥 cockpit (V)" : "🎥 chase (V)";
+};
+viewBtn.addEventListener("click", () => {
+  flight.toggleView();
+  syncViewLabel();
+});
+window.addEventListener("keydown", (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if ((e.key === "v" || e.key === "V") && flight.active) viewBtn.click();
+});
+controlsEl.appendChild(viewBtn);
 
 // Tilt-to-steer toggle, only on the touch flight deck. Enabling captures the
 // current grip as neutral; iOS asks for sensor permission on first use.

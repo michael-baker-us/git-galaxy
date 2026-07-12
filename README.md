@@ -19,7 +19,7 @@ node packages/server/dist/cli.js ~/repos --open             # many repos → a u
 
 ## The spaceship 🚀
 
-`F` spawns a low-poly Space Shuttle orbiter ahead of your view. Pointer-locked mouse steers, `W`/`S` throttle, `A`/`D` roll, `Shift` boosts. `Esc` or `F` hands you back to orbit controls, aimed wherever you were heading.
+`F` spawns a low-poly Space Shuttle orbiter ahead of your view. Pointer-locked mouse steers, `W`/`S` throttle, `A`/`D` roll, `Shift` boosts, and `V` switches between the chase camera and a **first-person cockpit view**. `Esc` or `F` hands you back to orbit controls, aimed wherever you were heading.
 
 ![Flying the shuttle into a galactic core](docs/media/flight.png)
 
