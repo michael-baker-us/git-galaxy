@@ -138,13 +138,15 @@
       #scene {
         touch-action: none; /* OrbitControls owns all touch gestures */
       }
+      /* Flight throttle: a plain horizontal bar in the stacked bottom zones —
+         the rotated-vertical version could land partly off-screen. */
       #throttle {
         display: none;
         position: fixed;
-        right: -62px;
-        top: 45%;
-        width: 170px;
-        transform: rotate(-90deg);
+        left: 16px;
+        right: 16px;
+        bottom: 150px;
+        height: 32px;
         accent-color: #8fc4ff;
         touch-action: none;
         z-index: 5;
@@ -267,7 +269,7 @@
           padding: 8px 9px;
         }
         #scanner {
-          bottom: 150px;
+          bottom: 196px;
           left: 12px;
           right: 12px;
           transform: none;

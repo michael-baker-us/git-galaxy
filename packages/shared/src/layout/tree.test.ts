@@ -136,6 +136,26 @@ describe("layoutTree", () => {
     expect(layoutTree(sampleTree(), { seed: 3 })).toEqual(layoutTree(sampleTree(), { seed: 3 }));
   });
 
+  it("reduces detail for huge trees so extents stay bounded", () => {
+    // 40 folders × 200 files = 8,000 files: full depth-4 detail would push
+    // ring radii into the hundreds; the adaptive budget must keep it tight.
+    const huge = dir(
+      "",
+      Array.from({ length: 40 }, (_, i) =>
+        dir(
+          `mod${i}`,
+          Array.from({ length: 200 }, (_, j) => file(`mod${i}/f${j}.cpp`, 2000)),
+        ),
+      ),
+    );
+    const placements = layoutTree(huge);
+    const maxOrbit = Math.max(...placements.map((p) => p.orbitRadius));
+    expect(maxOrbit).toBeLessThan(120);
+    // satellite cap shrinks too
+    const filesOfMod0 = placements.filter((p) => p.parentPath === "mod0" && p.kind === "file");
+    expect(filesOfMod0.length).toBeLessThanOrEqual(10);
+  });
+
   it("handles an empty root (zero-commit repo)", () => {
     const placements = layoutTree(dir("", []));
     expect(placements).toHaveLength(1);

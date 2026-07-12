@@ -56,6 +56,9 @@ export class OrbitSystem {
   /** Hover-raycast targets; each carries its BodyPlacement in userData.body. */
   readonly pickables: THREE.Object3D[] = [];
   private readonly bodies: OrbitingBody[] = [];
+  private sunLight: THREE.PointLight | null = null;
+  private readonly sunGlow: THREE.Object3D[] = [];
+  private sunMaterial: THREE.MeshStandardMaterial | null = null;
 
   constructor(placements: BodyPlacement[]) {
     const anchors = new Map<string, THREE.Group>();
@@ -81,13 +84,17 @@ export class OrbitSystem {
         // dressed with additive corona sprites so it reads as a star.
         const light = new THREE.PointLight(0xffe2b0, 6000, 0, 2);
         anchor.add(light);
+        this.sunLight = light;
+        this.sunMaterial = mesh.material as THREE.MeshStandardMaterial;
         // The corona is the nucleus you actually see from a distance, so it
         // doubles as a big hover target for the repo itself.
         const corona = createCorona(p.bodyRadius * 3.2, 0xffe6c0, 0.35);
         corona.userData.body = p;
         this.pickables.push(corona);
         anchor.add(corona);
-        anchor.add(createCorona(p.bodyRadius * 5.5, 0xffc890, 0.05));
+        const outerCorona = createCorona(p.bodyRadius * 5.5, 0xffc890, 0.05);
+        anchor.add(outerCorona);
+        this.sunGlow.push(corona, outerCorona);
         this.group.add(anchor);
         reach.set(p.path, 0);
         maxReach = Math.max(maxReach, p.bodyRadius);
@@ -136,6 +143,13 @@ export class OrbitSystem {
     for (const body of this.bodies) {
       body.holder.rotation.y = body.phase + elapsedSeconds * body.angularSpeed;
     }
+  }
+
+  /** Douse or relight the sun: point light, coronas, and the sun's own blaze. */
+  setSunLight(on: boolean): void {
+    if (this.sunLight) this.sunLight.visible = on;
+    for (const glow of this.sunGlow) glow.visible = on;
+    if (this.sunMaterial) this.sunMaterial.emissiveIntensity = on ? 2.2 : 0.5;
   }
 }
 

@@ -39,6 +39,7 @@ if (!canvas || !hud || !controlsEl || !tooltipEl || !timelineEl || !scannerEl ||
 }
 // Hoisted functions (scan) don't inherit the narrowing above.
 const scannerBox: HTMLElement = scannerEl;
+const isTouch = window.matchMedia("(pointer: coarse)").matches;
 
 /**
  * Data acquisition, in order of preference:
@@ -99,7 +100,9 @@ renderHud(hud, universe, note);
 const { renderer, scene, camera, controls, render, onResize } = createScene(canvas);
 scene.add(createBackdrop());
 // The suns do the lighting; ambient is just a whisper of galactic skylight.
-scene.add(new THREE.AmbientLight(0x8899bb, 0.12));
+// (When suns are toggled off, ambient rises to a flat viewing light.)
+const ambient = new THREE.AmbientLight(0x8899bb, 0.12);
+scene.add(ambient);
 
 interface GalaxyAssembly {
   snapshot: GalaxySnapshot;
@@ -291,7 +294,10 @@ canvas.addEventListener("pointermove", (e) => {
   pointer.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
   pointerClient = { x: e.clientX, y: e.clientY };
 });
-canvas.addEventListener("pointerleave", () => {
+canvas.addEventListener("pointerleave", (e) => {
+  // Touch pointers "leave" after every tap — that must not kill the tooltip
+  // the tap just opened. Only mouse departure hides it.
+  if (e.pointerType !== "mouse") return;
   pointerClient = null;
   tooltip.hide();
 });
@@ -299,6 +305,19 @@ canvas.addEventListener("pointerleave", () => {
 // Debug handle for e2e tooling: lets a driver project scene objects to
 // screen coordinates instead of guessing pixels.
 Object.assign(window, { __gg: { assemblies, camera } });
+
+function htmlForHit(hit: THREE.Intersection): string | null {
+  const body = hit.object.userData.body as BodyPlacement | undefined;
+  if (body) {
+    const assembly = bodyOwner.get(hit.object);
+    return assembly ? bodyTooltip(assembly, body) : null;
+  }
+  if (hit.object instanceof THREE.Points && hit.index !== undefined) {
+    const assembly = starTargets.get(hit.object);
+    return assembly ? starTooltip(assembly, hit.index) : null;
+  }
+  return null;
+}
 
 function pick(): void {
   if (!pointerClient) return;
@@ -309,21 +328,70 @@ function pick(): void {
   );
   raycaster.setFromCamera(pointer, camera);
   const hit = raycaster.intersectObjects(pickTargets, false)[0];
-  if (!hit) {
-    tooltip.hide();
-    return;
-  }
-  let html: string | null = null;
-  const body = hit.object.userData.body as BodyPlacement | undefined;
-  if (body) {
-    const assembly = bodyOwner.get(hit.object);
-    if (assembly) html = bodyTooltip(assembly, body);
-  } else if (hit.object instanceof THREE.Points && hit.index !== undefined) {
-    const assembly = starTargets.get(hit.object);
-    if (assembly) html = starTooltip(assembly, hit.index);
-  }
-  if (html) tooltip.show(html, pointerClient.x, pointerClient.y);
+  const html = hit ? htmlForHit(hit) : null;
+  if (html && pointerClient) tooltip.show(html, pointerClient.x, pointerClient.y);
   else tooltip.hide();
+}
+
+// Touch: no hover, so a tap picks instead — with finger-sized tolerance
+// (fatter ray threshold, plus screen-space nearest-body fallback) and a
+// tooltip that lingers instead of vanishing on the next frame.
+const TAP_MS = 400;
+const TAP_SLOP_PX = 12;
+const TAP_BODY_RADIUS_PX = 34;
+let tooltipTimer: ReturnType<typeof setTimeout> | undefined;
+const tapVec = new THREE.Vector3();
+
+function tapPick(x: number, y: number): void {
+  pointer.set((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
+  raycaster.params.Points.threshold = Math.max(
+    2.5,
+    camera.position.distanceTo(controls.target) * 0.011,
+  );
+  raycaster.setFromCamera(pointer, camera);
+  const hit = raycaster.intersectObjects(pickTargets, false)[0];
+  let html = hit ? htmlForHit(hit) : null;
+
+  if (!html) {
+    // Nearest body within a fingertip of the tap, in screen space.
+    let bestD2 = TAP_BODY_RADIUS_PX ** 2;
+    for (const [object, assembly] of bodyOwner) {
+      object.getWorldPosition(tapVec).project(camera);
+      if (tapVec.z > 1) continue; // behind the camera
+      const sx = ((tapVec.x + 1) / 2) * window.innerWidth;
+      const sy = ((1 - tapVec.y) / 2) * window.innerHeight;
+      const d2 = (sx - x) ** 2 + (sy - y) ** 2;
+      const body = object.userData.body as BodyPlacement | undefined;
+      if (d2 < bestD2 && body) {
+        bestD2 = d2;
+        html = bodyTooltip(assembly, body);
+      }
+    }
+  }
+
+  clearTimeout(tooltipTimer);
+  if (html) {
+    tooltip.show(html, x, Math.max(10, y - 90)); // above the finger
+    tooltipTimer = setTimeout(() => tooltip.hide(), 6000);
+  } else {
+    tooltip.hide();
+  }
+}
+
+if (isTouch) {
+  let tapStart: { x: number; y: number; t: number } | null = null;
+  canvas.addEventListener("pointerdown", (e) => {
+    tapStart = { x: e.clientX, y: e.clientY, t: performance.now() };
+  });
+  canvas.addEventListener("pointerup", (e) => {
+    const start = tapStart;
+    tapStart = null;
+    if (!start || flight.active) return;
+    const moved = Math.hypot(e.clientX - start.x, e.clientY - start.y);
+    if (performance.now() - start.t <= TAP_MS && moved <= TAP_SLOP_PX) {
+      tapPick(e.clientX, e.clientY);
+    }
+  });
 }
 
 // ── Timeline playback ────────────────────────────────────────────────────
@@ -384,7 +452,6 @@ throttleEl.addEventListener("input", () => {
   flight.setThrottleFraction(Number(throttleEl.value) / 100);
 });
 document.body.appendChild(throttleEl);
-const isTouch = window.matchMedia("(pointer: coarse)").matches;
 
 // Proximity scanner: cursor tooltips don't exist in flight, so the shuttle
 // scans whatever it flies close to instead.
@@ -456,6 +523,7 @@ let twinkleTime = 0;
 let rotationTime = 0;
 let orbitTime = 0;
 let colorMix = 0;
+let sunLightOn = true;
 
 /** Back to the first-open experience: intro replays, everything unpaused. */
 function resetView(): void {
@@ -507,6 +575,12 @@ renderer.setAnimationLoop(() => {
     applyTimeline();
   }
 
+  if (playback.sunLight !== sunLightOn) {
+    sunLightOn = playback.sunLight;
+    for (const a of assemblies) a.orbits.setSunLight(sunLightOn);
+    ambient.intensity = sunLightOn ? 0.12 : 0.55;
+  }
+
   const mixTarget = playback.authorColors ? 1 : 0;
   if (Math.abs(colorMix - mixTarget) > 0.001) {
     colorMix += (mixTarget - colorMix) * Math.min(1, dt * 6);
@@ -530,7 +604,8 @@ renderer.setAnimationLoop(() => {
     controls.update();
 
     // Throttled hover pick: cheap enough to feel live, never a frame hog.
-    if (twinkleTime - lastPickAt > 0.08) {
+    // (Touch devices pick on tap instead — hover doesn't exist there.)
+    if (!isTouch && twinkleTime - lastPickAt > 0.08) {
       lastPickAt = twinkleTime;
       pick();
     }

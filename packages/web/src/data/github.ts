@@ -9,17 +9,22 @@ import {
 
 /**
  * Browser-side RepoSource for the static (GitHub Pages) deployment: fetches
- * any public repo straight from api.github.com (CORS-enabled).
+ * any public repo — or a whole account's repos as a universe — straight from
+ * api.github.com (CORS-enabled).
  *
  * Constraints vs the local CLI:
  *  - unauthenticated rate limit is 60 requests/hour, so commits default to
- *    1,000 (10 paginated requests); an optional token raises it to 5,000/hr
+ *    1,000 for a single repo and 200/repo in owner mode; an optional token
+ *    raises the limit to 5,000/hr
  *  - the commits list API carries no insertion/deletion stats, so star
  *    sizes are uniform on the web (stats stay zeroed, never fabricated)
  */
 
 const API = "https://api.github.com";
 export const WEB_MAX_COMMITS = 1000;
+/** Owner mode fans out across repos, so each one gets a leaner budget. */
+export const OWNER_MAX_REPOS = 8;
+export const OWNER_MAX_COMMITS = 200;
 const PER_PAGE = 100;
 const CACHE_PREFIX = "gg:snapshot:";
 const CACHE_TTL_MS = 60 * 60 * 1000;
@@ -37,7 +42,15 @@ interface CommitItem {
   };
 }
 
-async function api<T>(path: string, token: string | undefined, raw = false): Promise<Response> {
+interface RepoItem {
+  name: string;
+  default_branch: string;
+  fork: boolean;
+  size: number;
+  pushed_at: string;
+}
+
+async function api(path: string, token: string | undefined): Promise<Response> {
   const res = await fetch(`${API}${path}`, {
     headers: {
       Accept: "application/vnd.github+json",
@@ -46,7 +59,7 @@ async function api<T>(path: string, token: string | undefined, raw = false): Pro
   });
   if (res.ok) return res;
   if (res.status === 404)
-    throw new GitHubFetchError("repository not found (private repos need a token)");
+    throw new GitHubFetchError("not found on GitHub (private repos need a token)");
   if (res.status === 401) throw new GitHubFetchError("token was rejected by GitHub");
   if (res.status === 403 || res.status === 429) {
     const reset = Number(res.headers.get("x-ratelimit-reset")) * 1000;
@@ -56,21 +69,18 @@ async function api<T>(path: string, token: string | undefined, raw = false): Pro
     );
   }
   if (res.status === 409) return res; // empty repository — handled by callers
-  throw new GitHubFetchError(`GitHub API error ${res.status}${raw ? "" : ` for ${path}`}`);
+  throw new GitHubFetchError(`GitHub API error ${res.status}`);
 }
 
 export async function fetchGitHubUniverse(
-  repoRef: string,
+  input: string,
   token: string | undefined,
   onProgress: ProgressFn,
 ): Promise<UniverseSnapshot> {
-  const ref = repoRef
+  const ref = input
     .trim()
     .replace(/^https:\/\/github\.com\//, "")
     .replace(/\/+$/, "");
-  if (!/^[\w.-]+\/[\w.-]+$/.test(ref)) {
-    throw new GitHubFetchError(`"${repoRef}" doesn't look like owner/repo`);
-  }
 
   const cached = readCache(ref);
   if (cached) {
@@ -78,9 +88,67 @@ export async function fetchGitHubUniverse(
     return cached;
   }
 
-  onProgress(`looking up ${ref} …`);
-  const repoRes = await api(`/repos/${ref}`, token);
-  const repo = (await repoRes.json()) as { name: string; default_branch: string };
+  let universe: UniverseSnapshot;
+  if (/^[\w.-]+$/.test(ref)) {
+    universe = await fetchOwnerUniverse(ref, token, onProgress);
+  } else if (/^[\w.-]+\/[\w.-]+$/.test(ref)) {
+    universe = {
+      generatedAt: Date.now(),
+      galaxies: [await fetchGalaxy(ref, null, WEB_MAX_COMMITS, token, onProgress)],
+    };
+  } else {
+    throw new GitHubFetchError(`"${input}" doesn't look like an owner or owner/repo`);
+  }
+  writeCache(ref, universe);
+  return universe;
+}
+
+/** A whole account as a universe: its most recently active source repos. */
+async function fetchOwnerUniverse(
+  owner: string,
+  token: string | undefined,
+  onProgress: ProgressFn,
+): Promise<UniverseSnapshot> {
+  onProgress(`listing ${owner}'s repositories …`);
+  const res = await api(`/users/${owner}/repos?per_page=100&sort=pushed`, token);
+  const all = (await res.json()) as RepoItem[];
+  const repos = all.filter((r) => !r.fork && r.size > 0).slice(0, OWNER_MAX_REPOS);
+  if (repos.length === 0) {
+    throw new GitHubFetchError(`${owner} has no non-fork repositories to render`);
+  }
+
+  const galaxies: GalaxySnapshot[] = [];
+  for (const repo of repos) {
+    const label = `${galaxies.length + 1}/${repos.length} ${repo.name}`;
+    galaxies.push(
+      await fetchGalaxy(
+        `${owner}/${repo.name}`,
+        repo.default_branch,
+        OWNER_MAX_COMMITS,
+        token,
+        (m) => onProgress(`${label}: ${m}`),
+      ),
+    );
+  }
+  return { generatedAt: Date.now(), galaxies };
+}
+
+async function fetchGalaxy(
+  ref: string,
+  knownBranch: string | null,
+  maxCommits: number,
+  token: string | undefined,
+  onProgress: ProgressFn,
+): Promise<GalaxySnapshot> {
+  let branch = knownBranch;
+  let name = ref.split("/")[1] ?? ref;
+  if (!branch) {
+    onProgress(`looking up ${ref} …`);
+    const repoRes = await api(`/repos/${ref}`, token);
+    const repo = (await repoRes.json()) as { name: string; default_branch: string };
+    branch = repo.default_branch;
+    name = repo.name;
+  }
 
   // Total commit count via the Link header trick: per_page=1, read last page.
   let totalCommits = 0;
@@ -94,21 +162,21 @@ export async function fetchGitHubUniverse(
   const authors: Author[] = [];
   const authorIds = new Map<string, number>();
   const commits: Commit[] = [];
-  const pages = Math.ceil(Math.min(totalCommits, WEB_MAX_COMMITS) / PER_PAGE);
+  const pages = Math.ceil(Math.min(totalCommits, maxCommits) / PER_PAGE);
   for (let page = 1; page <= pages; page++) {
-    onProgress(`fetching commits ${commits.length}/${Math.min(totalCommits, WEB_MAX_COMMITS)} …`);
+    onProgress(`fetching commits ${commits.length}/${Math.min(totalCommits, maxCommits)} …`);
     const res = await api(`/repos/${ref}/commits?per_page=${PER_PAGE}&page=${page}`, token);
     if (res.status === 409) break;
     const items = (await res.json()) as CommitItem[];
     for (const item of items) {
-      const name = item.commit.author?.name ?? "unknown";
+      const authorName = item.commit.author?.name ?? "unknown";
       const email = item.commit.author?.email ?? "";
-      const key = `${name}\x00${email}`;
+      const key = `${authorName}\x00${email}`;
       let authorId = authorIds.get(key);
       if (authorId === undefined) {
         authorId = authors.length;
         authorIds.set(key, authorId);
-        authors.push({ name, email, commitCount: 0 });
+        authors.push({ name: authorName, email, commitCount: 0 });
       }
       const author = authors[authorId];
       if (author) author.commitCount++;
@@ -125,10 +193,10 @@ export async function fetchGitHubUniverse(
     if (items.length < PER_PAGE) break;
   }
 
-  onProgress("fetching file tree …");
+  onProgress(`fetching ${name}'s file tree …`);
   let entries: TreeEntry[] = [];
   if (commits.length > 0) {
-    const treeRes = await api(`/repos/${ref}/git/trees/${repo.default_branch}?recursive=1`, token);
+    const treeRes = await api(`/repos/${ref}/git/trees/${branch}?recursive=1`, token);
     if (treeRes.status !== 409) {
       const tree = (await treeRes.json()) as {
         tree: { path: string; type: string; size?: number }[];
@@ -139,25 +207,18 @@ export async function fetchGitHubUniverse(
     }
   }
 
-  const universe: UniverseSnapshot = {
-    generatedAt: Date.now(),
-    galaxies: [
-      {
-        meta: {
-          repoName: repo.name,
-          headRef: repo.default_branch,
-          generatedAt: Date.now(),
-          totalCommits,
-          truncated: commits.length < totalCommits,
-        },
-        authors,
-        commits,
-        tree: buildTree(entries),
-      },
-    ],
+  return {
+    meta: {
+      repoName: name,
+      headRef: branch ?? "HEAD",
+      generatedAt: Date.now(),
+      totalCommits,
+      truncated: commits.length < totalCommits,
+    },
+    authors,
+    commits,
+    tree: buildTree(entries),
   };
-  writeCache(ref, universe);
-  return universe;
 }
 
 function readCache(ref: string): UniverseSnapshot | null {

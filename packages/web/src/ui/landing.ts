@@ -5,7 +5,7 @@ export interface Landing {
 }
 
 const TOKEN_KEY = "gg:token";
-const EXAMPLES = ["expressjs/express", "vitejs/vite", "sindresorhus/got"];
+const EXAMPLES = ["expressjs/express", "vitejs/vite", "michael-baker-us"];
 
 /**
  * Static-deployment entry: no local server, so ask which public GitHub repo
@@ -20,9 +20,10 @@ export function showLanding(
     <div class="card">
       <h1>Git Galaxy 🌌</h1>
       <p>Every repository is a galaxy. Stars are commits, planets are folders,
-         satellites are files. Enter any public GitHub repo:</p>
+         satellites are files. Enter a public GitHub repo — or just an owner
+         to render their whole universe:</p>
       <form>
-        <input name="repo" type="text" placeholder="owner/repo" autocapitalize="none"
+        <input name="repo" type="text" placeholder="owner/repo — or just owner" autocapitalize="none"
                autocorrect="off" spellcheck="false" inputmode="text" />
         <button type="submit">launch ✦</button>
       </form>

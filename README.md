@@ -4,7 +4,7 @@ Every repository becomes a galaxy. **Stars are commits. Planets are folders. Sat
 
 Point it at any local git repo — or a whole directory of them — and explore your code's history as an animated 3D universe in the browser. Or press `F` and **fly through it in a Space Shuttle**.
 
-**[▶ Live demo](https://michael-baker-us.github.io/git-galaxy/?repo=expressjs/express)** — no install; enter any public GitHub repo and it renders in your browser (works on phones). The hosted version fetches via the GitHub API, so star sizes are uniform and history is capped at 1,000 commits — run the CLI locally for full fidelity.
+**[▶ Live demo](https://michael-baker-us.github.io/git-galaxy/?repo=expressjs/express)** — no install; enter any public GitHub repo — or just a username to render **their whole account as a universe** — right in your browser (works on phones). The hosted version fetches via the GitHub API, so star sizes are uniform and history is capped (1,000 commits per repo, 8 repos per account) — run the CLI locally for full fidelity.
 
 ![The express repo rendered as a spiral galaxy](docs/media/galaxy-express.png)
 
@@ -49,8 +49,12 @@ Small repos get a compact disc with fatter stars; a 20-commit project reads as a
 | `T` | **play the repo's history** — stars ignite in commit order with a scrubber and date readout |
 | `C` | **author colors** — crossfade the starfield from age ramp to one distinct hue per contributor |
 | `R` / `O` | pause/resume galaxy rotation and orbital motion, independently |
+| `L` | toggle the suns' light — off swaps in a flat viewing light |
 | `F` | **board the spaceship** 🚀 |
 | `H` | reset to the first-open view, intro and all |
+
+On phones: tap anything for its tooltip, drag/pinch to explore, and flight gets
+drag steering with an on-screen throttle.
 
 Every object in the scene explains itself on hover — this star is a real commit:
 

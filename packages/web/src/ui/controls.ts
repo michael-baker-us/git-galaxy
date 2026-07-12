@@ -3,6 +3,8 @@ export interface PlaybackState {
   orbitsPaused: boolean;
   /** Color stars by author instead of age. */
   authorColors: boolean;
+  /** Suns illuminate their systems (off = flat ambient viewing light). */
+  sunLight: boolean;
   /** Programmatic pause (e.g. when the user grabs the camera) — keeps the button honest. */
   setRotationPaused(paused: boolean): void;
   /** Clears pauses and color mode, re-syncs button labels. */
@@ -19,6 +21,7 @@ export function mountControls(el: HTMLElement, onReset: () => void): PlaybackSta
     rotationPaused: false,
     orbitsPaused: false,
     authorColors: false,
+    sunLight: true,
     setRotationPaused(paused: boolean) {
       state.rotationPaused = paused;
       sync();
@@ -27,6 +30,7 @@ export function mountControls(el: HTMLElement, onReset: () => void): PlaybackSta
       state.rotationPaused = false;
       state.orbitsPaused = false;
       state.authorColors = false;
+      state.sunLight = true;
       sync();
     },
   };
@@ -34,10 +38,12 @@ export function mountControls(el: HTMLElement, onReset: () => void): PlaybackSta
   const rotationBtn = document.createElement("button");
   const orbitsBtn = document.createElement("button");
   const colorBtn = document.createElement("button");
+  const sunBtn = document.createElement("button");
   const sync = () => {
     rotationBtn.textContent = `${state.rotationPaused ? "▶" : "⏸"} rotation (R)`;
     orbitsBtn.textContent = `${state.orbitsPaused ? "▶" : "⏸"} orbits (O)`;
     colorBtn.textContent = `🎨 ${state.authorColors ? "authors" : "age"} (C)`;
+    sunBtn.textContent = `${state.sunLight ? "☀" : "🌑"} sun (L)`;
   };
   rotationBtn.addEventListener("click", () => {
     state.rotationPaused = !state.rotationPaused;
@@ -51,6 +57,10 @@ export function mountControls(el: HTMLElement, onReset: () => void): PlaybackSta
     state.authorColors = !state.authorColors;
     sync();
   });
+  sunBtn.addEventListener("click", () => {
+    state.sunLight = !state.sunLight;
+    sync();
+  });
   const resetBtn = document.createElement("button");
   resetBtn.textContent = "⌂ reset (H)";
   resetBtn.addEventListener("click", onReset);
@@ -60,10 +70,11 @@ export function mountControls(el: HTMLElement, onReset: () => void): PlaybackSta
     if (e.key === "r" || e.key === "R") rotationBtn.click();
     if (e.key === "o" || e.key === "O") orbitsBtn.click();
     if (e.key === "c" || e.key === "C") colorBtn.click();
+    if (e.key === "l" || e.key === "L") sunBtn.click();
     if (e.key === "h" || e.key === "H") resetBtn.click();
   });
 
   sync();
-  el.append(rotationBtn, orbitsBtn, colorBtn, resetBtn);
+  el.append(rotationBtn, orbitsBtn, colorBtn, sunBtn, resetBtn);
   return state;
 }

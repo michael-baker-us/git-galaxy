@@ -59,8 +59,24 @@ const fileBodyRadius = (bytes: number): number =>
 const keplerPeriod = (orbitRadius: number): number =>
   PERIOD_SCALE * (orbitRadius / PERIOD_REF_RADIUS) ** 1.5;
 
+/**
+ * Detail budget by repo size: huge trees rendered at full depth explode
+ * every folder's extent past the spacing cap and planets overlap. Shallower
+ * depth + fewer satellites keeps giant repos legible.
+ */
+export function detailFor(totalFiles: number): { maxDepth: number; maxFilesPerFolder: number } {
+  if (totalFiles > 6000) return { maxDepth: 2, maxFilesPerFolder: 10 };
+  if (totalFiles > 1500) return { maxDepth: 3, maxFilesPerFolder: 16 };
+  return { maxDepth: 4, maxFilesPerFolder: 30 };
+}
+
 export function layoutTree(root: FolderNode, options: TreeLayoutOptions = {}): BodyPlacement[] {
-  const { maxDepth = 4, maxFilesPerFolder = 30, seed = 1 } = options;
+  const auto = detailFor(root.totalFiles);
+  const {
+    maxDepth = auto.maxDepth,
+    maxFilesPerFolder = auto.maxFilesPerFolder,
+    seed = 1,
+  } = options;
   const placements: BodyPlacement[] = [];
 
   /** Lays out one folder's system; returns its total extent (radius including children). */
