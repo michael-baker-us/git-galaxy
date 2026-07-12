@@ -16,6 +16,11 @@ const MOUSE_PITCH = 0.0013;
 /** Drag steering (touch, or desktop without pointer lock) — shorter strokes, higher gain. */
 const DRAG_YAW = 0.0042;
 const DRAG_PITCH = 0.0034;
+/** Tilt steering: degrees of device tilt past the deadzone act as a rate joystick. */
+const TILT_DEADZONE_DEG = 2.5;
+const TILT_CLAMP_DEG = 22;
+const TILT_YAW_RATE = 1.5; // rad/s at full tilt
+const TILT_PITCH_RATE = 1.1;
 const ROLL_RATE = 1.9;
 const THROTTLE_RATE = 90;
 
@@ -30,6 +35,10 @@ export class FlightController {
   private dragPointer: number | null = null;
   private dragX = 0;
   private dragY = 0;
+  tiltEnabled = false;
+  private tiltBaseline: { beta: number; gamma: number } | null = null;
+  private tiltNow: { beta: number; gamma: number } | null = null;
+  private tiltPendingBaseline = false;
   private readonly keys = new Set<string>();
   private readonly scratch = {
     q: new THREE.Quaternion(),
@@ -78,6 +87,15 @@ export class FlightController {
     canvas.addEventListener("pointerup", endDrag);
     canvas.addEventListener("pointercancel", endDrag);
 
+    window.addEventListener("deviceorientation", (e) => {
+      if (e.beta === null || e.gamma === null) return;
+      this.tiltNow = { beta: e.beta, gamma: e.gamma };
+      if (this.tiltPendingBaseline) {
+        this.tiltBaseline = { ...this.tiltNow };
+        this.tiltPendingBaseline = false;
+      }
+    });
+
     // Esc releases pointer lock; on desktop that means leaving the cockpit.
     // (When lock was never acquired — touch — only the button/key exits.)
     document.addEventListener("pointerlockchange", () => {
@@ -101,6 +119,36 @@ export class FlightController {
     this.speed = MIN_SPEED + Math.min(1, Math.max(0, f)) * (MAX_SPEED - MIN_SPEED);
   }
 
+  /**
+   * Tilt-to-steer. Resolves false when the device refuses (iOS requires a
+   * user-gesture permission; desktops have no sensor).
+   */
+  async enableTilt(): Promise<boolean> {
+    const DOE = DeviceOrientationEvent as unknown as {
+      requestPermission?: () => Promise<string>;
+    };
+    if (typeof DOE?.requestPermission === "function") {
+      try {
+        if ((await DOE.requestPermission()) !== "granted") return false;
+      } catch {
+        return false;
+      }
+    }
+    this.tiltEnabled = true;
+    this.recenterTilt();
+    return true;
+  }
+
+  disableTilt(): void {
+    this.tiltEnabled = false;
+    this.tiltBaseline = null;
+  }
+
+  /** Current grip becomes the neutral position (next sensor reading). */
+  recenterTilt(): void {
+    this.tiltPendingBaseline = true;
+  }
+
   toggle(): void {
     if (this.active) this.exit();
     else this.enter();
@@ -117,6 +165,8 @@ export class FlightController {
     group.quaternion.copy(this.camera.quaternion);
     this.speed = 40;
     this.hadLock = false;
+    // Whatever way the phone is held right now is level flight.
+    if (this.tiltEnabled) this.recenterTilt();
     // Touch devices skip pointer lock entirely — drag steering handles it.
     if (!window.matchMedia("(pointer: coarse)").matches) {
       try {
@@ -149,6 +199,18 @@ export class FlightController {
     if (!this.active) return;
     const { group } = this.ship;
     const { q, axis, v } = this.scratch;
+
+    // Tilt steering: offsets from the neutral grip act as a rate joystick —
+    // hold a tilt, keep turning. Deadzone kills hand tremor.
+    if (this.tiltEnabled && this.tiltBaseline && this.tiltNow) {
+      const axis = (delta: number): number => {
+        const past = Math.max(0, Math.abs(delta) - TILT_DEADZONE_DEG);
+        return (Math.sign(delta) * Math.min(past, TILT_CLAMP_DEG)) / TILT_CLAMP_DEG;
+      };
+      // Roll the phone to yaw; tilt it toward/away to pitch.
+      this.yawDelta -= axis(this.tiltNow.gamma - this.tiltBaseline.gamma) * TILT_YAW_RATE * dt;
+      this.pitchDelta += axis(this.tiltNow.beta - this.tiltBaseline.beta) * TILT_PITCH_RATE * dt;
+    }
 
     // Steering: consume accumulated mouse deltas, roll from keys.
     let roll = 0;

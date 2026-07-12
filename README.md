@@ -75,8 +75,10 @@ Point the CLI at a directory of repositories (e.g. `~/repos`) and each becomes i
 
 The [hosted version](https://michael-baker-us.github.io/git-galaxy/) is fully
 touch-native: tap anything for its tooltip, drag and pinch to explore, and
-flight mode swaps to drag steering with an on-screen throttle — the reticle
-and target scanner work exactly like desktop.
+flight mode swaps to drag steering with an on-screen throttle — or enable
+**📱 tilt** on the flight deck and steer by tilting the phone (your current
+grip becomes level flight). The reticle and target scanner work exactly like
+desktop.
 
 <p>
   <img src="docs/media/mobile-landing.png" width="32%" alt="Landing screen: enter any repo or owner" />

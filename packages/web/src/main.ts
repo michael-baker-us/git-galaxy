@@ -447,6 +447,14 @@ const flight = new FlightController(ship, camera, canvas, (active) => {
   flightBtn.textContent = active ? "🚀 exit (F)" : "🚀 fly (F)";
   controls.enabled = !active;
   throttleEl.style.display = active && isTouch ? "block" : "none";
+  tiltBtn.style.display = active && isTouch ? "" : "none";
+  if (active && isTouch) {
+    syncTiltLabel();
+    // Tilt was on last time — re-arm it (iOS may still veto without a tap).
+    if (!flight.tiltEnabled && localStorage.getItem("gg:tilt") === "1") {
+      flight.enableTilt().then(() => syncTiltLabel());
+    }
+  }
   // On phones, flight strips the UI to the flight deck: exit button,
   // throttle, reticle, scanner. Extra button rows collide with the throttle.
   if (isTouch) document.body.classList.toggle("flight-touch", active);
@@ -475,6 +483,28 @@ throttleEl.addEventListener("input", () => {
   flight.setThrottleFraction(Number(throttleEl.value) / 100);
 });
 document.body.appendChild(throttleEl);
+
+// Tilt-to-steer toggle, only on the touch flight deck. Enabling captures the
+// current grip as neutral; iOS asks for sensor permission on first use.
+const tiltBtn = document.createElement("button");
+tiltBtn.className = "flight-btn";
+tiltBtn.style.display = "none";
+const syncTiltLabel = () => {
+  tiltBtn.textContent = `📱 tilt ${flight.tiltEnabled ? "on" : "off"}`;
+};
+tiltBtn.addEventListener("click", async () => {
+  if (flight.tiltEnabled) {
+    flight.disableTilt();
+    localStorage.removeItem("gg:tilt");
+  } else if (await flight.enableTilt()) {
+    localStorage.setItem("gg:tilt", "1");
+  } else {
+    tiltBtn.textContent = "📱 tilt unavailable";
+    return;
+  }
+  syncTiltLabel();
+});
+controlsEl.appendChild(tiltBtn);
 
 // Targeting scanner: the reticle at screen center reads out whatever the
 // shuttle is pointed at — precise ray first, then a small angular
