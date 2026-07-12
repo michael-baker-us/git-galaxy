@@ -173,14 +173,14 @@
         border-color: rgba(150, 230, 255, 0.95);
         box-shadow: 0 0 10px rgba(120, 200, 255, 0.55);
       }
-      /* Flight throttle: a plain horizontal bar in the stacked bottom zones —
-         the rotated-vertical version could land partly off-screen. */
+      /* Flight throttle: a short thumb-bar in the bottom-right corner, next
+         to the exit button — a full-width bar sat in the drag-steering zone. */
       #throttle {
         display: none;
         position: fixed;
-        left: 16px;
-        right: 16px;
-        bottom: 150px;
+        right: 12px;
+        bottom: 66px;
+        width: min(44vw, 200px);
         height: 32px;
         accent-color: #8fc4ff;
         touch-action: none;
