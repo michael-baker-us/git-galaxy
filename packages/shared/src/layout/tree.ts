@@ -49,7 +49,7 @@ const PERIOD_REF_RADIUS = 8;
 const FILES_PER_RING = 12;
 const RING_SPACING = 1.3;
 /** Spacing cap: a huge subtree may overlap a little instead of pushing every sibling out. */
-const SPACING_CAP = 18;
+const SPACING_CAP = 28;
 
 const folderBodyRadius = (totalFiles: number): number => 1.6 + 0.85 * Math.log1p(totalFiles);
 
@@ -64,10 +64,16 @@ const keplerPeriod = (orbitRadius: number): number =>
  * every folder's extent past the spacing cap and planets overlap. Shallower
  * depth + fewer satellites keeps giant repos legible.
  */
-export function detailFor(totalFiles: number): { maxDepth: number; maxFilesPerFolder: number } {
-  if (totalFiles > 6000) return { maxDepth: 2, maxFilesPerFolder: 10 };
-  if (totalFiles > 1500) return { maxDepth: 3, maxFilesPerFolder: 16 };
-  return { maxDepth: 4, maxFilesPerFolder: 30 };
+export function detailFor(totalFiles: number): {
+  maxDepth: number;
+  maxFilesPerFolder: number;
+  orbitGap: number;
+} {
+  // Bigger trees also get wider ring gaps — breathing room matters more
+  // than density once there are hundreds of bodies.
+  if (totalFiles > 6000) return { maxDepth: 2, maxFilesPerFolder: 10, orbitGap: 3.2 };
+  if (totalFiles > 1500) return { maxDepth: 3, maxFilesPerFolder: 16, orbitGap: 2.4 };
+  return { maxDepth: 4, maxFilesPerFolder: 30, orbitGap: ORBIT_GAP };
 }
 
 export function layoutTree(root: FolderNode, options: TreeLayoutOptions = {}): BodyPlacement[] {
@@ -77,6 +83,7 @@ export function layoutTree(root: FolderNode, options: TreeLayoutOptions = {}): B
     maxFilesPerFolder = auto.maxFilesPerFolder,
     seed = 1,
   } = options;
+  const orbitGap = auto.orbitGap;
   const placements: BodyPlacement[] = [];
 
   /** Lays out one folder's system; returns its total extent (radius including children). */
@@ -154,7 +161,7 @@ export function layoutTree(root: FolderNode, options: TreeLayoutOptions = {}): B
         .sort((a, b) => b.totalFiles - a.totalFiles)
         .map((sub) => layoutFolder(sub, depth + 1, folder.path));
 
-      let ringInner = extent + ORBIT_GAP;
+      let ringInner = extent + orbitGap;
       let i = 0;
       while (i < children.length) {
         const first = children[i];
@@ -162,7 +169,7 @@ export function layoutTree(root: FolderNode, options: TreeLayoutOptions = {}): B
         // Children are sorted biggest-first, so the first member bounds the ring.
         const ringExtent = Math.min(first.extent, SPACING_CAP);
         const radius = ringInner + ringExtent;
-        const footprint = 2 * Math.asin(Math.min(1, (ringExtent + ORBIT_GAP / 2) / radius));
+        const footprint = 2 * Math.asin(Math.min(1, (ringExtent + orbitGap / 2) / radius));
         const capacity = Math.max(1, Math.floor((2 * Math.PI) / footprint));
         const members = children.slice(i, i + capacity);
         const plane = { inclination: rng.gaussian() * 0.28, node: rng.range(0, 2 * Math.PI) };
@@ -174,7 +181,7 @@ export function layoutTree(root: FolderNode, options: TreeLayoutOptions = {}): B
           child.placement.node = plane.node;
         });
         i += members.length;
-        ringInner = radius + ringExtent + ORBIT_GAP;
+        ringInner = radius + ringExtent + orbitGap;
         extent = radius + Math.max(...members.map((m) => m.extent));
       }
     }

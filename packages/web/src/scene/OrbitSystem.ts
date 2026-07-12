@@ -23,8 +23,15 @@ interface OrbitingBody {
   angularSpeed: number;
 }
 
-/** Scale the whole system down if a huge repo would outgrow the galaxy. */
-const TARGET_MAX_REACH = 42;
+/**
+ * Systems render at FULL scale — big repos get a big nucleus and the galaxy
+ * disc grows around it; planets are never shrunk to fit. Only a distant
+ * safety ceiling (pathological monorepos) compresses, with diminishing
+ * returns rather than a hard crush.
+ */
+const REACH_SOFT_CAP = 300;
+const displayReach = (maxReach: number): number =>
+  maxReach <= REACH_SOFT_CAP ? maxReach : REACH_SOFT_CAP + (maxReach - REACH_SOFT_CAP) ** 0.72;
 
 const SPHERE = new THREE.SphereGeometry(1, 24, 16);
 
@@ -133,10 +140,11 @@ export class OrbitSystem {
       maxReach = Math.max(maxReach, distance + p.bodyRadius);
     }
 
-    if (maxReach > TARGET_MAX_REACH) {
-      this.group.scale.setScalar(TARGET_MAX_REACH / maxReach);
+    const target = displayReach(maxReach);
+    if (target < maxReach) {
+      this.group.scale.setScalar(target / maxReach);
     }
-    this.reach = Math.min(maxReach, TARGET_MAX_REACH);
+    this.reach = target;
   }
 
   update(elapsedSeconds: number): void {
