@@ -12,6 +12,7 @@ import {
 } from "@git-galaxy/shared";
 import * as THREE from "three";
 import { fetchUniverse } from "./data/api";
+import { GitHubFetchError, fetchGitHubUniverse } from "./data/github";
 import { mockGalaxy } from "./data/mock";
 import { FlightController } from "./flight";
 import { OrbitSystem } from "./scene/OrbitSystem";
@@ -22,6 +23,7 @@ import { createScene } from "./scene/createScene";
 import { createLabel } from "./scene/label";
 import { mountControls } from "./ui/controls";
 import { renderHud } from "./ui/hud";
+import { showLanding, storedToken } from "./ui/landing";
 import { mountTimeline } from "./ui/timeline";
 import { createTooltip, escapeHtml, formatBytes } from "./ui/tooltip";
 
@@ -31,20 +33,67 @@ const controlsEl = document.querySelector<HTMLElement>("#controls");
 const tooltipEl = document.querySelector<HTMLElement>("#tooltip");
 const timelineEl = document.querySelector<HTMLElement>("#timeline");
 const scannerEl = document.querySelector<HTMLElement>("#scanner");
-if (!canvas || !hud || !controlsEl || !tooltipEl || !timelineEl || !scannerEl) {
+const landingEl = document.querySelector<HTMLElement>("#landing");
+if (!canvas || !hud || !controlsEl || !tooltipEl || !timelineEl || !scannerEl || !landingEl) {
   throw new Error("missing DOM scaffolding");
 }
 // Hoisted functions (scan) don't inherit the narrowing above.
 const scannerBox: HTMLElement = scannerEl;
 
-let universe: UniverseSnapshot;
-let note: string | undefined;
-try {
-  universe = await fetchUniverse();
-} catch {
-  universe = { generatedAt: Date.now(), galaxies: [mockGalaxy()] };
-  note = "server unreachable — showing mock data";
+/**
+ * Data acquisition, in order of preference:
+ *  1. the local CLI's /api/universe (full fidelity — churn stats, multi-repo)
+ *  2. GitHub API mode for the static deployment (?repo= or the landing screen)
+ *  3. ?mock=1 procedural data for development
+ */
+async function acquireUniverse(): Promise<{ universe: UniverseSnapshot; note?: string }> {
+  const params = new URLSearchParams(location.search);
+  if (params.get("mock")) {
+    return { universe: { generatedAt: Date.now(), galaxies: [mockGalaxy()] }, note: "mock data" };
+  }
+
+  try {
+    return { universe: await fetchUniverse() };
+  } catch {
+    // no local server — static deployment; fall through to GitHub mode
+  }
+
+  const githubNote = "GitHub API mode — run the CLI locally for churn-sized stars";
+  return new Promise((resolve) => {
+    const landing = showLanding(landingEl as HTMLElement, async (repoRef, token) => {
+      try {
+        landing.setBusy("contacting GitHub …");
+        const fetched = await fetchGitHubUniverse(repoRef, token, (m) => landing.setBusy(m));
+        const ref = repoRef.trim().replace(/^https:\/\/github\.com\//, "");
+        history.replaceState(null, "", `?repo=${encodeURIComponent(ref)}`);
+        landing.hide();
+        resolve({ universe: fetched, note: githubNote });
+      } catch (error) {
+        landing.setError(
+          error instanceof GitHubFetchError ? error.message : `unexpected error: ${error}`,
+        );
+      }
+    });
+
+    // Shareable links: ?repo=owner/name loads immediately.
+    const preset = params.get("repo");
+    if (preset) {
+      landing.setBusy(`loading ${preset} …`);
+      fetchGitHubUniverse(preset, storedToken(), (m) => landing.setBusy(m))
+        .then((fetched) => {
+          landing.hide();
+          resolve({ universe: fetched, note: githubNote });
+        })
+        .catch((error) => {
+          landing.setError(
+            error instanceof GitHubFetchError ? error.message : `unexpected error: ${error}`,
+          );
+        });
+    }
+  });
 }
+
+const { universe, note } = await acquireUniverse();
 renderHud(hud, universe, note);
 
 const { renderer, scene, camera, controls, render, onResize } = createScene(canvas);
@@ -221,10 +270,15 @@ function starTooltip(assembly: GalaxyAssembly, pointIndex: number): string | nul
   const author = assembly.snapshot.authors[commit.authorId];
   const date = new Date(commit.timestamp * 1000).toISOString().slice(0, 10);
   const merge = commit.parents.length > 1 ? " · merge" : "";
+  const { insertions, deletions, filesChanged } = commit.stats;
+  // GitHub API mode has no churn stats — omit them rather than show +0 −0.
+  const churn =
+    insertions + deletions + filesChanged > 0
+      ? ` · +${insertions.toLocaleString()} −${deletions.toLocaleString()}`
+      : "";
   return (
     `<div>✦ <b>${escapeHtml(commit.subject)}</b></div>` +
-    `<div class="dim">${escapeHtml(author?.name ?? "unknown")} · ${date} · ` +
-    `+${commit.stats.insertions.toLocaleString()} −${commit.stats.deletions.toLocaleString()}` +
+    `<div class="dim">${escapeHtml(author?.name ?? "unknown")} · ${date}${churn}` +
     `${merge} · ${commit.hash}</div>` +
     `<div class="dim">${escapeHtml(assembly.snapshot.meta.repoName)}</div>`
   );
@@ -316,7 +370,10 @@ const flight = new FlightController(ship, camera, canvas, (active) => {
 });
 flightBtn.textContent = "🚀 fly (F)";
 flightBtn.addEventListener("click", () => flight.toggle());
-controlsEl.appendChild(flightBtn);
+// Flight needs pointer lock + a keyboard; hide it on touch devices.
+if (!window.matchMedia("(pointer: coarse)").matches) {
+  controlsEl.appendChild(flightBtn);
+}
 
 // Proximity scanner: cursor tooltips don't exist in flight, so the shuttle
 // scans whatever it flies close to instead.

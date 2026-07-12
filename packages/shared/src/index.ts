@@ -31,3 +31,4 @@ export {
   layoutTree,
   type TreeLayoutOptions,
 } from "./layout/tree";
+export { buildTree, type TreeEntry } from "./tree-build";

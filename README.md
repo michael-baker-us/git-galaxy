@@ -4,6 +4,8 @@ Every repository becomes a galaxy. **Stars are commits. Planets are folders. Sat
 
 Point it at any local git repo — or a whole directory of them — and explore your code's history as an animated 3D universe in the browser. Or press `F` and **fly through it in a Space Shuttle**.
 
+**[▶ Live demo](https://michael-baker-us.github.io/git-galaxy/?repo=expressjs/express)** — no install; enter any public GitHub repo and it renders in your browser (works on phones). The hosted version fetches via the GitHub API, so star sizes are uniform and history is capped at 1,000 commits — run the CLI locally for full fidelity.
+
 ![The express repo rendered as a spiral galaxy](docs/media/galaxy-express.png)
 
 ## Quick start

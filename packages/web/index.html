@@ -135,6 +135,134 @@
         letter-spacing: 0.2em;
         font-size: 10px;
       }
+      #scene {
+        touch-action: none; /* OrbitControls owns all touch gestures */
+      }
+      #landing {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 20;
+        background: radial-gradient(ellipse at center, #0a0e22 0%, #02020a 70%);
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        padding: 16px;
+      }
+      #landing .card {
+        max-width: 460px;
+        width: 100%;
+        color: #dce4ff;
+      }
+      #landing h1 {
+        font-size: 26px;
+        letter-spacing: 0.06em;
+        margin: 0 0 10px;
+      }
+      #landing p {
+        color: rgba(170, 182, 220, 0.85);
+        font-size: 13px;
+        line-height: 1.6;
+        margin: 0 0 18px;
+      }
+      #landing form {
+        display: flex;
+        gap: 8px;
+      }
+      #landing input {
+        flex: 1;
+        min-width: 0;
+        background: rgba(18, 24, 46, 0.85);
+        border: 1px solid rgba(150, 165, 220, 0.35);
+        border-radius: 6px;
+        color: #dce4ff;
+        font: inherit;
+        font-size: 15px;
+        padding: 12px;
+      }
+      #landing button {
+        background: rgba(70, 95, 180, 0.55);
+        border: 1px solid rgba(150, 165, 220, 0.45);
+        border-radius: 6px;
+        color: #eaf0ff;
+        font: inherit;
+        font-size: 14px;
+        padding: 12px 16px;
+        cursor: pointer;
+      }
+      #landing .examples {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      #landing .examples button {
+        background: rgba(18, 24, 46, 0.85);
+        font-size: 12px;
+        padding: 8px 10px;
+        color: rgba(190, 200, 240, 0.9);
+      }
+      #landing details {
+        margin-top: 16px;
+        font-size: 12px;
+        color: rgba(160, 170, 210, 0.75);
+      }
+      #landing details input {
+        width: 100%;
+        margin-top: 8px;
+        font-size: 13px;
+        box-sizing: border-box;
+      }
+      #landing .status {
+        margin-top: 14px;
+        min-height: 18px;
+        font-size: 13px;
+        color: #9fc8ff;
+      }
+      #landing .status.error {
+        color: #ff9f9f;
+      }
+      /* Small screens: tighten the control rows, stack the timeline above them. */
+      @media (max-width: 760px) {
+        #hud {
+          left: 12px;
+          top: 10px;
+          font-size: 11px;
+        }
+        #hud .title {
+          font-size: 14px;
+        }
+        /* Stacked zones, bottom-up: timeline, controls, scanner — no overlap
+           even when the control row wraps to two lines. */
+        #timeline {
+          left: 12px;
+          right: 12px;
+          bottom: 12px;
+          justify-content: space-between;
+        }
+        #timeline input[type="range"] {
+          width: auto;
+          flex: 1;
+        }
+        #controls {
+          left: 12px;
+          right: 12px;
+          bottom: 62px;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        #controls button {
+          font-size: 11px;
+          padding: 8px 9px;
+        }
+        #scanner {
+          bottom: 150px;
+          left: 12px;
+          right: 12px;
+          transform: none;
+          max-width: none;
+        }
+      }
     </style>
   </head>
   <body>
@@ -144,6 +272,7 @@
     <div id="timeline"></div>
     <div id="scanner"></div>
     <div id="tooltip"></div>
+    <div id="landing"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

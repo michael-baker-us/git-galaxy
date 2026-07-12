@@ -28,7 +28,12 @@ export function renderHud(el: HTMLElement, universe: UniverseSnapshot, note?: st
     );
   }
 
-  lines.push(`<div class="dim">hover for details · drag to explore · F to fly</div>`);
+  const touch = window.matchMedia("(pointer: coarse)").matches;
+  lines.push(
+    touch
+      ? `<div class="dim">tap for details · drag to explore</div>`
+      : `<div class="dim">hover for details · drag to explore · F to fly</div>`,
+  );
   if (note) lines.push(`<div class="dim">${escapeHtml(note)}</div>`);
   el.innerHTML = lines.join("");
 }
