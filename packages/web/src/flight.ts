@@ -35,6 +35,7 @@ export class FlightController {
   private dragPointer: number | null = null;
   private dragX = 0;
   private dragY = 0;
+  private throttleInput: -1 | 0 | 1 = 0;
   tiltEnabled = false;
   private tiltBaseline: { beta: number; gamma: number } | null = null;
   private tiltNow: { beta: number; gamma: number } | null = null;
@@ -109,14 +110,13 @@ export class FlightController {
 
   private hadLock = false;
 
-  /** Current speed as a 0..1 fraction of the throttle range. */
-  throttleFraction(): number {
-    return (this.speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED);
+  /** Held throttle rocker: -1 slower, +1 faster, 0 hold speed (same ramp as W/S). */
+  setThrottleInput(direction: -1 | 0 | 1): void {
+    this.throttleInput = direction;
   }
 
-  /** Touch throttle slider drives speed directly. */
-  setThrottleFraction(f: number): void {
-    this.speed = MIN_SPEED + Math.min(1, Math.max(0, f)) * (MAX_SPEED - MIN_SPEED);
+  get currentSpeed(): number {
+    return this.speed;
   }
 
   /**
@@ -183,6 +183,7 @@ export class FlightController {
   exit(): void {
     if (!this.active) return;
     this.active = false;
+    this.throttleInput = 0; // a finger may still be down on the rocker
     this.ship.group.visible = false;
     if (document.pointerLockElement === this.canvas) document.exitPointerLock();
     this.camera.up.set(0, 1, 0);
@@ -223,9 +224,10 @@ export class FlightController {
     this.yawDelta = 0;
     this.pitchDelta = 0;
 
-    // Throttle.
+    // Throttle: keyboard or the held touch rocker.
     if (this.keys.has("w")) this.speed += THROTTLE_RATE * dt;
     if (this.keys.has("s")) this.speed -= THROTTLE_RATE * dt;
+    this.speed += THROTTLE_RATE * this.throttleInput * dt;
     this.speed = Math.min(MAX_SPEED, Math.max(MIN_SPEED, this.speed));
     const effective = this.speed * (this.keys.has("shift") ? BOOST : 1);
 

@@ -173,18 +173,37 @@
         border-color: rgba(150, 230, 255, 0.95);
         box-shadow: 0 0 10px rgba(120, 200, 255, 0.55);
       }
-      /* Flight throttle: a short thumb-bar in the bottom-right corner, next
-         to the exit button — a full-width bar sat in the drag-steering zone. */
+      /* Flight throttle: a hold-to-ramp rocker in the bottom-right corner —
+         big thumb targets, nothing to drag, out of the steering zone. */
       #throttle {
         display: none;
         position: fixed;
         right: 12px;
-        bottom: 66px;
-        width: min(44vw, 200px);
-        height: 32px;
-        accent-color: #8fc4ff;
-        touch-action: none;
+        bottom: 14px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+        width: 64px;
         z-index: 5;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      #throttle button {
+        background: rgba(18, 24, 46, 0.78);
+        color: rgba(210, 220, 250, 0.9);
+        border: 1px solid rgba(150, 165, 220, 0.3);
+        border-radius: 8px;
+        font-size: 18px;
+        padding: 14px 0;
+        touch-action: none;
+      }
+      #throttle .speed {
+        text-align: center;
+        color: rgba(160, 200, 255, 0.85);
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        font-size: 11px;
+        min-height: 14px;
       }
       #landing {
         position: fixed;

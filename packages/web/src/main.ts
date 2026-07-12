@@ -446,7 +446,7 @@ const flightBtn = document.createElement("button");
 const flight = new FlightController(ship, camera, canvas, (active) => {
   flightBtn.textContent = active ? "🚀 exit (F)" : "🚀 fly (F)";
   controls.enabled = !active;
-  throttleEl.style.display = active && isTouch ? "block" : "none";
+  throttleEl.style.display = active && isTouch ? "flex" : "none";
   tiltBtn.style.display = active && isTouch ? "" : "none";
   if (active && isTouch) {
     syncTiltLabel();
@@ -461,7 +461,6 @@ const flight = new FlightController(ship, camera, canvas, (active) => {
   if (reticleEl) reticleEl.style.display = active ? "block" : "none";
   if (active) {
     tooltip.hide();
-    throttleEl.value = String(Math.round(flight.throttleFraction() * 100));
   } else {
     scannerEl.style.display = "none";
     // Hand the view back to orbit controls, aimed where the ship was heading.
@@ -473,15 +472,31 @@ flightBtn.className = "flight-btn";
 flightBtn.addEventListener("click", () => flight.toggle());
 controlsEl.appendChild(flightBtn);
 
-// Touch flight: drag steers; this vertical slider is the throttle.
-const throttleEl = document.createElement("input");
-throttleEl.type = "range";
+// Touch throttle: a hold-to-ramp rocker (▲ speed readout ▼) tucked in the
+// corner — dragging a slider demanded precision and blocked steering strokes.
+const throttleEl = document.createElement("div");
 throttleEl.id = "throttle";
-throttleEl.min = "0";
-throttleEl.max = "100";
-throttleEl.addEventListener("input", () => {
-  flight.setThrottleFraction(Number(throttleEl.value) / 100);
-});
+const throttleUp = document.createElement("button");
+throttleUp.textContent = "▲";
+const speedReadout = document.createElement("span");
+speedReadout.className = "speed";
+const throttleDown = document.createElement("button");
+throttleDown.textContent = "▼";
+throttleEl.append(throttleUp, speedReadout, throttleDown);
+throttleEl.addEventListener("contextmenu", (e) => e.preventDefault());
+for (const [btn, dir] of [
+  [throttleUp, 1],
+  [throttleDown, -1],
+] as const) {
+  btn.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    btn.setPointerCapture(e.pointerId);
+    flight.setThrottleInput(dir);
+  });
+  for (const evt of ["pointerup", "pointercancel"] as const) {
+    btn.addEventListener(evt, () => flight.setThrottleInput(0));
+  }
+}
 document.body.appendChild(throttleEl);
 
 // Tilt-to-steer toggle, only on the touch flight deck. Enabling captures the
@@ -574,6 +589,7 @@ let rotationTime = 0;
 let orbitTime = 0;
 let colorMix = 0;
 let sunLightOn = true;
+let lastSpeedShown = -1;
 
 /** Back to the first-open experience: intro replays, everything unpaused. */
 function resetView(): void {
@@ -645,6 +661,11 @@ renderer.setAnimationLoop(() => {
 
   if (flight.active) {
     flight.update(dt);
+    const speed = Math.round(flight.currentSpeed);
+    if (speed !== lastSpeedShown) {
+      lastSpeedShown = speed;
+      speedReadout.textContent = `${speed}u/s`;
+    }
     if (twinkleTime - lastScanAt > 0.15) {
       lastScanAt = twinkleTime;
       scan();
