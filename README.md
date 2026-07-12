@@ -71,6 +71,19 @@ Point the CLI at a directory of repositories (e.g. `~/repos`) and each becomes i
 
 ![A universe of eight repositories](docs/media/universe.png)
 
+### On your phone
+
+The [hosted version](https://michael-baker-us.github.io/git-galaxy/) is fully
+touch-native: tap anything for its tooltip, drag and pinch to explore, and
+flight mode swaps to drag steering with an on-screen throttle — the reticle
+and target scanner work exactly like desktop.
+
+<p>
+  <img src="docs/media/mobile-landing.png" width="32%" alt="Landing screen: enter any repo or owner" />
+  <img src="docs/media/mobile-galaxy.png" width="32%" alt="Tap a sun for its tooltip" />
+  <img src="docs/media/mobile-flight.png" width="32%" alt="Touch flight: reticle lock and throttle" />
+</p>
+
 ## CLI
 
 ```

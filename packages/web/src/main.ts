@@ -444,9 +444,12 @@ const ship = createSpaceship();
 scene.add(ship.group);
 const flightBtn = document.createElement("button");
 const flight = new FlightController(ship, camera, canvas, (active) => {
-  flightBtn.textContent = active ? "🚀 exit flight (F)" : "🚀 fly (F)";
+  flightBtn.textContent = active ? "🚀 exit (F)" : "🚀 fly (F)";
   controls.enabled = !active;
   throttleEl.style.display = active && isTouch ? "block" : "none";
+  // On phones, flight strips the UI to the flight deck: exit button,
+  // throttle, reticle, scanner. Extra button rows collide with the throttle.
+  if (isTouch) document.body.classList.toggle("flight-touch", active);
   if (reticleEl) reticleEl.style.display = active ? "block" : "none";
   if (active) {
     tooltip.hide();
@@ -458,6 +461,7 @@ const flight = new FlightController(ship, camera, canvas, (active) => {
   }
 });
 flightBtn.textContent = "🚀 fly (F)";
+flightBtn.className = "flight-btn";
 flightBtn.addEventListener("click", () => flight.toggle());
 controlsEl.appendChild(flightBtn);
 

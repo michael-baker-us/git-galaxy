@@ -138,6 +138,12 @@
       #scene {
         touch-action: none; /* OrbitControls owns all touch gestures */
       }
+      /* Touch flight strips the UI to the flight deck — extra control rows
+         would collide with the throttle bar. */
+      body.flight-touch #timeline,
+      body.flight-touch #controls button:not(.flight-btn) {
+        display: none;
+      }
       /* Flight reticle: what it covers is what the scanner reads. */
       #reticle {
         display: none;
