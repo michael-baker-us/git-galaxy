@@ -446,7 +446,8 @@ const flightBtn = document.createElement("button");
 const flight = new FlightController(ship, camera, canvas, (active) => {
   flightBtn.textContent = active ? "🚀 exit (F)" : "🚀 fly (F)";
   controls.enabled = !active;
-  throttleEl.style.display = active && isTouch ? "flex" : "none";
+  // The rocker buttons are touch-only, but the speed readout flies everywhere.
+  throttleEl.style.display = active ? "flex" : "none";
   tiltBtn.style.display = active && isTouch ? "" : "none";
   if (active && isTouch) {
     syncTiltLabel();
@@ -483,6 +484,10 @@ speedReadout.className = "speed";
 const throttleDown = document.createElement("button");
 throttleDown.textContent = "▼";
 throttleEl.append(throttleUp, speedReadout, throttleDown);
+if (!isTouch) {
+  throttleUp.style.display = "none";
+  throttleDown.style.display = "none";
+}
 throttleEl.addEventListener("contextmenu", (e) => e.preventDefault());
 for (const [btn, dir] of [
   [throttleUp, 1],
