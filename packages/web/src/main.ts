@@ -41,6 +41,9 @@ if (!canvas || !hud || !controlsEl || !tooltipEl || !timelineEl || !scannerEl ||
 const scannerBox: HTMLElement = scannerEl;
 const isTouch = window.matchMedia("(pointer: coarse)").matches;
 
+/** True when data came from the GitHub API (static deployment). */
+let webMode = false;
+
 /**
  * Data acquisition, in order of preference:
  *  1. the local CLI's /api/universe (full fidelity — churn stats, multi-repo)
@@ -59,6 +62,7 @@ async function acquireUniverse(): Promise<{ universe: UniverseSnapshot; note?: s
     // no local server — static deployment; fall through to GitHub mode
   }
 
+  webMode = true;
   const githubNote = "GitHub API mode — run the CLI locally for churn-sized stars";
   return new Promise((resolve) => {
     const landing = showLanding(landingEl as HTMLElement, async (repoRef, token) => {
@@ -228,6 +232,20 @@ if (location.hash === "#system" && firstAssembly) {
 
 // ── Playback ─────────────────────────────────────────────────────────────
 const playback = mountControls(controlsEl, () => resetView());
+
+// Web mode: a way back to the repo picker to view something else.
+if (webMode) {
+  const newRepoBtn = document.createElement("button");
+  newRepoBtn.textContent = "🔭 new repo (N)";
+  newRepoBtn.addEventListener("click", () => {
+    location.href = location.pathname; // drop ?repo= → landing screen
+  });
+  window.addEventListener("keydown", (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === "n" || e.key === "N") newRepoBtn.click();
+  });
+  controlsEl.appendChild(newRepoBtn);
+}
 // Grabbing the camera (drag or zoom) pauses rotation through the same state
 // the button shows, so the label stays honest and R resumes the drift.
 controls.addEventListener("start", () => {
