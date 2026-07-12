@@ -138,6 +138,35 @@
       #scene {
         touch-action: none; /* OrbitControls owns all touch gestures */
       }
+      /* Flight reticle: what it covers is what the scanner reads. */
+      #reticle {
+        display: none;
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        width: 30px;
+        height: 30px;
+        transform: translate(-50%, -50%);
+        border: 1.5px solid rgba(120, 200, 255, 0.45);
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 4;
+      }
+      #reticle::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 3px;
+        height: 3px;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        background: rgba(120, 200, 255, 0.7);
+      }
+      #reticle.lock {
+        border-color: rgba(150, 230, 255, 0.95);
+        box-shadow: 0 0 10px rgba(120, 200, 255, 0.55);
+      }
       /* Flight throttle: a plain horizontal bar in the stacked bottom zones —
          the rotated-vertical version could land partly off-screen. */
       #throttle {
@@ -284,6 +313,7 @@
     <div id="controls"></div>
     <div id="timeline"></div>
     <div id="scanner"></div>
+    <div id="reticle"></div>
     <div id="tooltip"></div>
     <div id="landing"></div>
     <script type="module" src="/src/main.ts"></script>

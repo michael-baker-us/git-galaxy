@@ -447,6 +447,7 @@ const flight = new FlightController(ship, camera, canvas, (active) => {
   flightBtn.textContent = active ? "🚀 exit flight (F)" : "🚀 fly (F)";
   controls.enabled = !active;
   throttleEl.style.display = active && isTouch ? "block" : "none";
+  if (reticleEl) reticleEl.style.display = active ? "block" : "none";
   if (active) {
     tooltip.hide();
     throttleEl.value = String(Math.round(flight.throttleFraction() * 100));
@@ -471,54 +472,51 @@ throttleEl.addEventListener("input", () => {
 });
 document.body.appendChild(throttleEl);
 
-// Proximity scanner: cursor tooltips don't exist in flight, so the shuttle
-// scans whatever it flies close to instead.
-const BODY_SCAN_RANGE = 30;
-const STAR_SCAN_RANGE = 12;
+// Targeting scanner: the reticle at screen center reads out whatever the
+// shuttle is pointed at — precise ray first, then a small angular
+// aim-assist cone for bodies.
+const RETICLE_ASSIST_PX = 42;
 const scanVec = new THREE.Vector3();
-const scanLocal = new THREE.Vector3();
+const scanCenter = new THREE.Vector2(0, 0);
 let lastScanAt = 0;
+const reticleEl = document.querySelector<HTMLElement>("#reticle");
 
 function scan(): void {
-  let bestHtml: string | null = null;
-  let bestDist = Number.POSITIVE_INFINITY;
-  const shipPos = ship.group.position;
+  let html: string | null = null;
+  let target: THREE.Vector3 | null = null;
 
-  for (const [object, assembly] of bodyOwner) {
-    const d = object.getWorldPosition(scanVec).distanceTo(shipPos);
-    if (d < BODY_SCAN_RANGE && d < bestDist) {
+  raycaster.params.Points.threshold = 2.5;
+  raycaster.setFromCamera(scanCenter, camera);
+  const hit = raycaster.intersectObjects(pickTargets, false)[0];
+  if (hit) {
+    html = htmlForHit(hit);
+    if (html) target = hit.point.clone();
+  }
+
+  if (!html) {
+    // Aim assist: the body closest to the reticle within a small cone.
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    let bestD2 = RETICLE_ASSIST_PX ** 2;
+    for (const [object, assembly] of bodyOwner) {
+      object.getWorldPosition(scanVec).project(camera);
+      if (scanVec.z > 1) continue; // behind the camera
+      const sx = ((scanVec.x + 1) / 2) * window.innerWidth;
+      const sy = ((1 - scanVec.y) / 2) * window.innerHeight;
+      const d2 = (sx - cx) ** 2 + (sy - cy) ** 2;
       const body = object.userData.body as BodyPlacement | undefined;
-      if (body) {
-        bestDist = d;
-        bestHtml = bodyTooltip(assembly, body);
+      if (d2 < bestD2 && body) {
+        bestD2 = d2;
+        html = bodyTooltip(assembly, body);
+        target = object.getWorldPosition(new THREE.Vector3());
       }
     }
   }
 
-  for (const [points, assembly] of starTargets) {
-    // Compare in the starfield's local space (rotating disc, unscaled).
-    scanLocal.copy(shipPos);
-    points.worldToLocal(scanLocal);
-    const placements = assembly.starfield.placements;
-    for (let i = 0; i < placements.length; i++) {
-      const pos = placements[i]?.position;
-      if (!pos) continue;
-      const dx = pos[0] - scanLocal.x;
-      const dy = pos[1] - scanLocal.y;
-      const dz = pos[2] - scanLocal.z;
-      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (d < STAR_SCAN_RANGE && d < bestDist) {
-        const html = starTooltip(assembly, i);
-        if (html) {
-          bestDist = d;
-          bestHtml = html;
-        }
-      }
-    }
-  }
-
-  if (bestHtml) {
-    scannerBox.innerHTML = `<div class="scanlabel">◈ SCAN · ${bestDist.toFixed(1)}u</div>${bestHtml}`;
+  reticleEl?.classList.toggle("lock", html !== null);
+  if (html && target) {
+    const range = target.distanceTo(ship.group.position);
+    scannerBox.innerHTML = `<div class="scanlabel">◎ TARGET · ${range.toFixed(1)}u</div>${html}`;
     scannerBox.style.display = "block";
   } else {
     scannerBox.style.display = "none";

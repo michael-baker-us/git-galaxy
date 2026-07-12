@@ -23,7 +23,7 @@ node packages/server/dist/cli.js ~/repos --open             # many repos → a u
 
 ![Flying the shuttle into a galactic core](docs/media/flight.png)
 
-While flying, the shuttle **scans whatever it passes** — the nearest commit, folder, or file appears in a HUD readout with its distance. Here, threading through express's nucleus, it's picked up a file 6.6 units away:
+In flight the shuttle carries a **targeting reticle** — center your crosshair on any star, planet, or satellite and it locks, reading the target out in the scanner HUD with its range:
 
 ![The proximity scanner reading out a file while flying through the nucleus](docs/media/flight-scan.png)
 
