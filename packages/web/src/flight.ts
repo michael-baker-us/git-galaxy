@@ -13,6 +13,9 @@ const MAX_SPEED = 350;
 const BOOST = 2.5;
 const MOUSE_YAW = 0.0016;
 const MOUSE_PITCH = 0.0013;
+/** Drag steering (touch, or desktop without pointer lock) — shorter strokes, higher gain. */
+const DRAG_YAW = 0.0042;
+const DRAG_PITCH = 0.0034;
 const ROLL_RATE = 1.9;
 const THROTTLE_RATE = 90;
 
@@ -24,6 +27,9 @@ export class FlightController {
   private speed = 40;
   private yawDelta = 0;
   private pitchDelta = 0;
+  private dragPointer: number | null = null;
+  private dragX = 0;
+  private dragY = 0;
   private readonly keys = new Set<string>();
   private readonly scratch = {
     q: new THREE.Quaternion(),
@@ -50,10 +56,49 @@ export class FlightController {
       this.yawDelta -= e.movementX * MOUSE_YAW;
       this.pitchDelta -= e.movementY * MOUSE_PITCH;
     });
-    // Esc releases pointer lock; treat that as leaving the cockpit.
-    document.addEventListener("pointerlockchange", () => {
-      if (this.active && document.pointerLockElement !== this.canvas) this.exit();
+
+    // Drag steering: touch devices, and any environment without pointer lock.
+    canvas.addEventListener("pointerdown", (e) => {
+      if (!this.active || document.pointerLockElement === this.canvas) return;
+      this.dragPointer = e.pointerId;
+      this.dragX = e.clientX;
+      this.dragY = e.clientY;
+      canvas.setPointerCapture(e.pointerId);
     });
+    canvas.addEventListener("pointermove", (e) => {
+      if (!this.active || this.dragPointer !== e.pointerId) return;
+      this.yawDelta -= (e.clientX - this.dragX) * DRAG_YAW;
+      this.pitchDelta -= (e.clientY - this.dragY) * DRAG_PITCH;
+      this.dragX = e.clientX;
+      this.dragY = e.clientY;
+    });
+    const endDrag = (e: PointerEvent) => {
+      if (this.dragPointer === e.pointerId) this.dragPointer = null;
+    };
+    canvas.addEventListener("pointerup", endDrag);
+    canvas.addEventListener("pointercancel", endDrag);
+
+    // Esc releases pointer lock; on desktop that means leaving the cockpit.
+    // (When lock was never acquired — touch — only the button/key exits.)
+    document.addEventListener("pointerlockchange", () => {
+      if (document.pointerLockElement === this.canvas) {
+        this.hadLock = true;
+      } else if (this.active && this.hadLock) {
+        this.exit();
+      }
+    });
+  }
+
+  private hadLock = false;
+
+  /** Current speed as a 0..1 fraction of the throttle range. */
+  throttleFraction(): number {
+    return (this.speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED);
+  }
+
+  /** Touch throttle slider drives speed directly. */
+  setThrottleFraction(f: number): void {
+    this.speed = MIN_SPEED + Math.min(1, Math.max(0, f)) * (MAX_SPEED - MIN_SPEED);
   }
 
   toggle(): void {
@@ -71,12 +116,16 @@ export class FlightController {
     group.position.copy(this.camera.position).addScaledVector(dir, 18);
     group.quaternion.copy(this.camera.quaternion);
     this.speed = 40;
-    try {
-      // Chrome returns a promise that rejects in some environments (e.g.
-      // headless); flight still works keyboard-only without the lock.
-      (this.canvas.requestPointerLock() as Promise<void> | undefined)?.catch(() => {});
-    } catch {
-      // pointer lock unavailable — mouse steering disabled, that's all
+    this.hadLock = false;
+    // Touch devices skip pointer lock entirely — drag steering handles it.
+    if (!window.matchMedia("(pointer: coarse)").matches) {
+      try {
+        // Chrome returns a promise that rejects in some environments (e.g.
+        // headless); flight falls back to drag/keyboard steering without it.
+        (this.canvas.requestPointerLock() as Promise<void> | undefined)?.catch(() => {});
+      } catch {
+        // pointer lock unavailable — drag steering still works
+      }
     }
     this.onChange(true);
   }

@@ -360,8 +360,10 @@ const flightBtn = document.createElement("button");
 const flight = new FlightController(ship, camera, canvas, (active) => {
   flightBtn.textContent = active ? "🚀 exit flight (F)" : "🚀 fly (F)";
   controls.enabled = !active;
+  throttleEl.style.display = active && isTouch ? "block" : "none";
   if (active) {
     tooltip.hide();
+    throttleEl.value = String(Math.round(flight.throttleFraction() * 100));
   } else {
     scannerEl.style.display = "none";
     // Hand the view back to orbit controls, aimed where the ship was heading.
@@ -370,10 +372,19 @@ const flight = new FlightController(ship, camera, canvas, (active) => {
 });
 flightBtn.textContent = "🚀 fly (F)";
 flightBtn.addEventListener("click", () => flight.toggle());
-// Flight needs pointer lock + a keyboard; hide it on touch devices.
-if (!window.matchMedia("(pointer: coarse)").matches) {
-  controlsEl.appendChild(flightBtn);
-}
+controlsEl.appendChild(flightBtn);
+
+// Touch flight: drag steers; this vertical slider is the throttle.
+const throttleEl = document.createElement("input");
+throttleEl.type = "range";
+throttleEl.id = "throttle";
+throttleEl.min = "0";
+throttleEl.max = "100";
+throttleEl.addEventListener("input", () => {
+  flight.setThrottleFraction(Number(throttleEl.value) / 100);
+});
+document.body.appendChild(throttleEl);
+const isTouch = window.matchMedia("(pointer: coarse)").matches;
 
 // Proximity scanner: cursor tooltips don't exist in flight, so the shuttle
 // scans whatever it flies close to instead.
